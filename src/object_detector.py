@@ -3,7 +3,6 @@
 
 import numpy as np
 import os
-import sys
 import tensorflow as tf
 import time
 
@@ -13,20 +12,18 @@ from PIL import Image
 from object_detection.utils import label_map_util
 from object_detection.utils import visualization_utils as vis_util
 
-path_to_tf_model = os.path.join('/home/chiaman/git/models/research/object_detection')
-sys.path.insert(0, path_to_tf_model)
 
-
-class PersonDetection(object):
-    def __init__(self, model_filename):
-        self.threshold_detection = 0.4
-        self.only_detect_person = False
+class ObjectDetector(object):
+    def __init__(self, model_filename, path_to_model, detect_object=True, detect_person=True, threshold_detection=0.4):
+        self.detect_person = detect_person
+        self.detect_object = detect_object
+        self.threshold_detection = threshold_detection
 
         # Path to frozen detection graph. This is the actual model that is used for the object detection.
         path_to_frozen_graph = model_filename + '/frozen_inference_graph.pb'
 
         # List of the strings that is used to add correct label for each box.
-        path_to_labels = os.path.join(path_to_tf_model, 'data', 'mscoco_label_map.pbtxt')
+        path_to_labels = os.path.join(path_to_model, 'data', 'mscoco_label_map.pbtxt')
 
         # Load a (frozen) Tensorflow model into memory.
         self.detection_graph = tf.Graph()
@@ -77,7 +74,9 @@ class PersonDetection(object):
 
         for i, score in enumerate(input_dict['detection_scores']):
             if score > self.threshold_detection:
-                if self.only_detect_person and input_dict['detection_classes'][i] != 1:
+                if not self.detect_person and input_dict['detection_classes'][i] == 1:
+                    continue
+                if not self.detect_object and input_dict['detection_classes'][i] != 1:
                     continue
                 output_dict['detection_scores'].append(score)
                 output_dict['num_detections'] += 1
@@ -87,8 +86,13 @@ class PersonDetection(object):
         return output_dict
 
     def detect(self, np_image):
-        # detect 
-        with self.detection_graph.as_default():            
+        '''
+        Detect bounding boxes in an image.
+        :param np_image: image as numpy array.
+        :return: bounding_boxes: a 2 dimensional numpy array of [N, 4]: (ymin, xmin, ymax, xmax).
+                                 The coordinates are in normalized format between [0, 1].
+        '''
+        with self.detection_graph.as_default():
             # The following processing is only for single image
             detection_boxes = tf.squeeze(self.tensor_dict['detection_boxes'], [0])
             # Reframe is required to translate mask from box coordinates to image coordinates and fit the image size.
@@ -160,5 +164,8 @@ def load_image_into_numpy_array(image):
 
 if __name__ == '__main__':
     model_name = 'ssd_mobilenet_v1_coco_2018_01_28'
-    detector = PersonDetection(model_name)
+    path_to_tf_model = os.path.join('/home/chiaman/git/models/research/object_detection')
+    detect_obj = False
+    detect_pers = True
+    detector = ObjectDetector(model_name, path_to_tf_model, detect_obj, detect_pers)
     detector.detect_test()

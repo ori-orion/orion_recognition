@@ -1,19 +1,20 @@
 #!/usr/bin/env python
 
-import person_detection
+import object_detector
 
 import cv2
 import numpy as np
-
+import os
 import rospy
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
     
-class ImageListener(object):
-    def __init__(self, model_filename, image_topic):
-        self.detector = person_detection.PersonDetection(model_filename)
-
+class BboxPublisher(object):
+    def __init__(self, image_topic, model_filename, path_to_tf_model, detect_object, detect_person,
+                 threshold_detection):
+        self.detector = object_detector.ObjectDetector(model_filename, path_to_tf_model, detect_object, detect_person,
+                                                       threshold_detection)
         rospy.init_node('listener', anonymous=True)
         self.subscriber = rospy.Subscriber(image_topic, Image, self.callback, queue_size=100)
         self.pub = rospy.Publisher('/image_listener/image', Image, queue_size=100)
@@ -38,6 +39,11 @@ class ImageListener(object):
 
  
 if __name__ == '__main__':
+    img_topic = "/hsrb/head_rgbd_sensor/rgb/image_rect_color"
     model_name = 'ssd_mobilenet_v1_coco_2018_01_28'
-    sub = ImageListener(model_name, "/hsrb/head_rgbd_sensor/rgb/image_rect_color")
+    path_to_model = os.path.join('/home/chiaman/git/models/research/object_detection')
+    detect_pers = True
+    detect_obj = True
+    thresh = 0.4
+    sub = BboxPublisher(img_topic, model_name, path_to_model, detect_obj, detect_pers, thresh)
     rospy.spin() 
