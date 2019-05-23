@@ -1,4 +1,4 @@
-# orion_recognation
+# orion_recognition
 
 ## Launch
 ```
