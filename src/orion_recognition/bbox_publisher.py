@@ -7,7 +7,6 @@ import cv2
 import numpy as np
 import os
 import rospy
-import std_msgs.msg
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -45,9 +44,7 @@ class BboxPublisher(object):
             detection = Detection(label, center_x, center_y, width, height)
             detections.append(detection)
         try:
-            header = std_msgs.msg.Header()
-            header.stamp = rospy.Time.now()
-            self.detections_pub.publish(DetectionArray(header, detections))
+            self.detections_pub.publish(DetectionArray(ros_image.header, detections))
             self.bbox_pub.publish(self.bridge.cv2_to_imgmsg(image, "bgr8"))
         except CvBridgeError as e:
             print(e)
