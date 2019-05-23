@@ -21,7 +21,7 @@ class ObjectDetector(object):
         self.threshold_detection = threshold_detection
 
         # Path to frozen detection graph. This is the actual model that is used for the object detection.
-        path_to_frozen_graph = model_filename + '/frozen_inference_graph.pb'
+        path_to_frozen_graph = os.path.join(path_to_model, model_filename, 'frozen_inference_graph.pb')
 
         # List of the strings that is used to add correct label for each box.
         path_to_labels = os.path.join(path_to_model, 'data', 'mscoco_label_map.pbtxt')

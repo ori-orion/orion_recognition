@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import os
 import rospy
+import std_msgs.msg
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -16,7 +17,6 @@ class BboxPublisher(object):
                  threshold_detection):
         self.detector = object_detector.ObjectDetector(model_filename, path_to_tf_model, detect_object, detect_person,
                                                        threshold_detection)
-        rospy.init_node('bbox', anonymous=True)
         self.subscriber = rospy.Subscriber(image_topic, Image, self.callback, queue_size=100)
         self.bbox_pub = rospy.Publisher('/vision/bbox_image', Image, queue_size=100)
         self.detections_pub = rospy.Publisher('/vision/bbox_detections', DetectionArray, queue_size=100)
@@ -39,12 +39,15 @@ class BboxPublisher(object):
             bottom_right = (int(row[3] * width), int(row[2] * height))
             cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 3)
 
-            center_x, center_y = (top_left + bottom_right) / 2
+            center_x = (top_left[0] + bottom_right[0]) / 2
+            center_y = (top_left[1] + bottom_right[1]) / 2
             label = Label(detection_classes_string[i], detection_scores[i])
             detection = Detection(label, center_x, center_y, width, height)
             detections.append(detection)
         try:
-            self.detections_pub.publish(DetectionArray(detections))
+            header = std_msgs.msg.Header()
+            header.stamp = rospy.Time.now()
+            self.detections_pub.publish(DetectionArray(header, detections))
             self.bbox_pub.publish(self.bridge.cv2_to_imgmsg(image, "bgr8"))
         except CvBridgeError as e:
             print(e)
