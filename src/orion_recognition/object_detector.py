@@ -7,6 +7,7 @@ import tensorflow as tf
 import time
 
 from matplotlib import pyplot as plt
+
 from PIL import Image
 
 from object_detection.utils import label_map_util
@@ -51,12 +52,13 @@ class ObjectDetector(object):
                 tensor_name = key + ':0'
                 if tensor_name in all_tensor_names:
                     self.tensor_dict[key] = tf.get_default_graph().get_tensor_by_name(tensor_name)
+            self.image_tensor = tf.get_default_graph().get_tensor_by_name('image_tensor:0')
 
-    def run_inference_for_single_image(self, image, tensor_dict, image_tensor):
+    def run_inference_for_single_image(self, image_np):
         # Run inference
         start = time.time()
         # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
-        output_dict = self.sess.run(tensor_dict, feed_dict={image_tensor: np.expand_dims(image, 0)})
+        output_dict = self.sess.run(self.tensor_dict, feed_dict={self.image_tensor: np.expand_dims(image_np, 0)})
         end = time.time()
         print (end - start)
         # All outputs are float32 numpy arrays, so convert types as appropriate
@@ -85,24 +87,26 @@ class ObjectDetector(object):
                 output_dict['detection_classes'].append(input_dict['detection_classes'][i])
         return output_dict
 
-    def detect(self, np_image):
+    def add_detection_classes_string(self, output_dict):
+        size = len(output_dict['detection_classes'])
+        output_dict['detection_classes_string'] = ["" for x in range(size)]
+        for i in range(size):
+            output_dict['detection_classes_string'][i] = self.category_index[output_dict['detection_classes'][i]][
+                'name']
+        return output_dict
+
+    def detect(self, image_np):
         '''
         Detect bounding boxes in an image.
-        :param np_image: image as numpy array.
-        :return: bounding_boxes: a 2 dimensional numpy array of [N, 4]: (ymin, xmin, ymax, xmax).
-                                 The coordinates are in normalized format between [0, 1].
+        :param image_np: image as numpy array.
+        :return: bounding_boxes['detection_boxes']: a 2 dimensional numpy array of [N, 4]: (ymin, xmin, ymax, xmax).
+                 The coordinates are in normalized format between [0, 1].
+                 category index example: {1: {'id': 1, 'name': u'person'}, 2: {'id': 2, 'name': u'bicycle'}}
         '''
-        with self.detection_graph.as_default():
-            # The following processing is only for single image
-            detection_boxes = tf.squeeze(self.tensor_dict['detection_boxes'], [0])
-            # Reframe is required to translate mask from box coordinates to image coordinates and fit the image size.
-            real_num_detection = tf.cast(self.tensor_dict['num_detections'][0], tf.int32)
-            detection_boxes = tf.slice(detection_boxes, [0, 0], [real_num_detection, -1])
-
-            # Actual detection
-            inference_dict = self.run_inference_for_single_image(np_image, self.tensor_dict, self.image_tensor)
-            output_dict = self.filter_predictions(inference_dict)
-            return output_dict['detection_boxes']
+        inference_dict = self.run_inference_for_single_image(image_np)
+        output_dict = self.filter_predictions(inference_dict)
+        output_dict = self.add_detection_classes_string(output_dict)
+        return output_dict
      
     def detect_test(self):
         # # Detection
@@ -113,34 +117,18 @@ class ObjectDetector(object):
         # Size, in inches, of the output images.
         IMAGE_SIZE = (24, 16)
         with self.detection_graph.as_default():
-            # initialization
-            # Get handles to input and output tensors
-            image_tensor = tf.get_default_graph().get_tensor_by_name('image_tensor:0')
-            ops = tf.get_default_graph().get_operations()
-            all_tensor_names = {output.name for op in ops for output in op.outputs}
-            tensor_dict = {}
-            for key in [
-                'num_detections', 'detection_boxes', 'detection_scores',
-                'detection_classes', 'detection_masks'
-            ]:
-                tensor_name = key + ':0'
-                if tensor_name in all_tensor_names:
-                    tensor_dict[key] = tf.get_default_graph().get_tensor_by_name(
-                        tensor_name)
-
             for image_path in TEST_IMAGE_PATHS:
                 print(image_path)
                 image = Image.open(image_path)
                 # The array based representation of the image will be used later in order to prepare the
                 # result image with boxes and labels on it.
                 image_np = load_image_into_numpy_array(image)
-                # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
-                # image_np_expanded = np.expand_dims(image_np, axis=0)
 
-                # Actual detection.
-                inference_dict = self.run_inference_for_single_image(image_np, tensor_dict, image_tensor)
-                output_dict = self.filter_predictions(inference_dict)
+                # Actual detection
+                output_dict = self.detect(image_np)
                 print(output_dict['detection_boxes'])
+                print(output_dict['detection_classes'])
+                print(output_dict['detection_scores'])
 
                 # Visualization of the results of a detection.
                 vis_util.visualize_boxes_and_labels_on_image_array(
@@ -165,7 +153,7 @@ def load_image_into_numpy_array(image):
 if __name__ == '__main__':
     model_name = 'ssd_mobilenet_v1_coco_2018_01_28'
     path_to_tf_model = os.path.join('/home/chiaman/git/models/research/object_detection')
-    detect_obj = False
+    detect_obj = True
     detect_pers = True
     detector = ObjectDetector(model_name, path_to_tf_model, detect_obj, detect_pers)
     detector.detect_test()
