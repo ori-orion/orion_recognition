@@ -10,6 +10,9 @@ $ hsrb_mode
 <hsrb>~$ source catkin_ws/devel/setup.bash
 ```
 ## Object detection
+### Installation
+https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/installation.md
+
 ### Launch
 The launch file does not work.
 ```
