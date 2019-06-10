@@ -44,7 +44,7 @@ Alternatively, run them separately.
 
 and publishes to
 
-`/vision/bbox_detections` (DetectionArray, information about detected bounding boxes, you can also find the mean color and the size(not accurate) of the object in this messagenow.)
+`/vision/bbox_detections` (DetectionArray, information about detected bounding boxes, you can also find the mean color and the size(not accurate) of the object in this message now.)
 
 `/vision/bbox_image`, (Image, bounding boxes in an image for visualisation)
 
@@ -64,7 +64,9 @@ and publishes to
 `/vision/pose_detections` (DetectionArray, coordinates of each marker point, e.g. nose_x, nose_y ...)
 
 Available marker points: Nose, LEye, REye, LEar, REar, LShoulder, RShoulder, LElbow, RElbow, LWrist, RWrist, LHip, RHip, LKnee, Rknee, LAnkle, RAnkle, Neck
+
 Now this message also gives you two additional bool values: waving, sitting, to predict whether this person is waving or sitting.
+
 `/vision/pose_image`, (Image, skeletons in an image for visualisation)
 
 ## Face detection
