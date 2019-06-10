@@ -10,6 +10,17 @@ $ hsrb_mode
 <hsrb>~$ source catkin_ws/devel/setup.bash
 ```
 ## Object detection
+### Installation
+https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/installation.md
+
+### To change to a new model
+Download a new model from:
+https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md
+
+Unzip it and place it under `src/orion_recognition`.
+
+Change the `model_name` in `scripts/bbox_publisher_node.py`.
+
 ### Launch
 The launch file does not work.
 ```
