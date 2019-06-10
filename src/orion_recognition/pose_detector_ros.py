@@ -87,7 +87,7 @@ class PoseDetector(object):
         self.pose_model = InferenNet_fast(4 * 1 + 1, self.pose_dataset)
         self.pose_model.cuda()
         self.pose_model.eval()
-        self.semantic_list = ['Nose', 'LEye', 'REye', 'LEar', 'REar', 'LShoulder', 'RShoulder', 'LElbow', 'RElbow', 'LWrist', 'RWrist', 'LHip', 'RHip', 'LKnee', 'Rknee', 'LAnkle', 'RAnkle', 'Neck']
+        self.semantic_list = ['Nose', 'LEye', 'REye', 'LEar', 'REar', 'LShoulder', 'RShoulder', 'LElbow', 'RElbow', 'LWrist', 'RWrist', 'LHip', 'RHip', 'LKnee', 'RKnee', 'LAnkle', 'RAnkle', 'Neck']
        
     def detect(self, orig_im):
         output_dict={}
@@ -130,6 +130,8 @@ class PoseDetector(object):
             #publish human pose information
             for i,human in enumerate(result['result']):
                 #print(result['result'])
+                upLeft=pt1[i] 
+                bottomRight=pt2[i]
                 kp_preds = human['keypoints']
                 kp_scores = human['kp_score']
                 kp_preds = torch.cat((kp_preds, torch.unsqueeze((kp_preds[5,:]+kp_preds[6,:])/2,0)))
@@ -139,9 +141,9 @@ class PoseDetector(object):
                 for n in range(kp_scores.shape[0]):
                     if kp_scores[n] <= 0.05:
                         cor_x, cor_y = (-1, -1)
-                    cor_x, cor_y = int(kp_preds[n, 0]/2), int(kp_preds[n, 1]/2)
+                    cor_x, cor_y = int(kp_preds[n, 0]), int(kp_preds[n, 1])
                     key_points[self.semantic_list[n]]=(cor_x, cor_y)
-                output_dict[str(i)] = key_points    
+                output_dict[str(i)] = (key_points, upLeft, bottomRight)
             print('{} humans detected.'.format(len(result['result'])))
         return img, output_dict
 
@@ -243,6 +245,7 @@ class PoseDetector(object):
 
         im_name = im_res['imgname'].split('/')[-1]
         img = frame
+        #pdb.set_trace()
         height,width = img.shape[:2]
         img = cv2.resize(img,(int(width/2), int(height/2)))
         for human in im_res['result']:
@@ -252,6 +255,10 @@ class PoseDetector(object):
             kp_preds = torch.cat((kp_preds, torch.unsqueeze((kp_preds[5,:]+kp_preds[6,:])/2,0)))
             kp_scores = torch.cat((kp_scores, torch.unsqueeze((kp_scores[5,:]+kp_scores[6,:])/2,0)))
             # Draw keypoints
+            #print('LShoulder:',int(kp_preds[5, 0]), int(kp_preds[5, 1]))
+            #print('RShoulder:',int(kp_preds[6, 0]), int(kp_preds[6, 1]))
+            #print('LHip:',int(kp_preds[11, 0]), int(kp_preds[11, 1]))
+            #print('Neck:',int(kp_preds[-1, 0]), int(kp_preds[-1, 1]))
             for n in range(kp_scores.shape[0]):
                 if kp_scores[n] <= 0.05:
                     continue

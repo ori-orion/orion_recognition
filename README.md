@@ -33,7 +33,7 @@ Alternatively, run them separately.
 
 and publishes to
 
-`/vision/bbox_detections` (DetectionArray, information about detected bounding boxes)
+`/vision/bbox_detections` (DetectionArray, information about detected bounding boxes, you can also find the mean color and the size(not accurate) of the object in this messagenow.)
 
 `/vision/bbox_image`, (Image, bounding boxes in an image for visualisation)
 
@@ -53,7 +53,7 @@ and publishes to
 `/vision/pose_detections` (DetectionArray, coordinates of each marker point, e.g. nose_x, nose_y ...)
 
 Available marker points: Nose, LEye, REye, LEar, REar, LShoulder, RShoulder, LElbow, RElbow, LWrist, RWrist, LHip, RHip, LKnee, Rknee, LAnkle, RAnkle, Neck
-
+Now this message also gives you two additional bool values: waving, sitting, to predict whether this person is waving or sitting.
 `/vision/pose_image`, (Image, skeletons in an image for visualisation)
 
 ## Face detection
@@ -67,7 +67,8 @@ Available marker points: Nose, LEye, REye, LEar, REar, LShoulder, RShoulder, LEl
 
 and publishes to
 
-`/vision/face_detections` (DetectionArray, information about bounding boxes locations, scores, age_group(string), e.g. '18-25', age_index(int), e.g. if '18-25' is the third old age group then age_index will be 3 for '18-25', gender, e.g.'M'/'F')
+`/vision/face_detections` (DetectionArray, information about bounding boxes locations, age(not accurate but at least is somehow reasonable now), gender, e.g.'M'/'F', emotion, e.g. 'happy')
+
 
 `/vision/face_image`, (Image, bounding boxes in an image with age and gender information for visualisation)
 

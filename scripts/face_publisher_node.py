@@ -2,7 +2,7 @@
 
 import rospy
 import os
-from orion_recognition.face_publisher import FacePublisher
+from orion_recognition.face_publisher_new import FacePublisher
 
 
 def main():

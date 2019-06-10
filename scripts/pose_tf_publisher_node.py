@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 import rospy
-from orion_recognition.detection_tf_publisher import DetectionTFPublisher
+from orion_recognition.pose_tf_publisher import DetectionTFPublisher
 
 
 def main():
-    rospy.init_node('detection_tf_publisher')
+    rospy.init_node('detection_tf_publisher_pose')
     DetectionTFPublisher()
     rospy.spin()
 

@@ -7,7 +7,7 @@ import tensorflow as tf
 import time
 
 from matplotlib import pyplot as plt
-
+import pdb
 from PIL import Image
 
 from object_detection.utils import label_map_util
@@ -19,16 +19,17 @@ class ObjectDetector(object):
         self.detect_person = detect_person
         self.detect_object = detect_object
         self.threshold_detection = threshold_detection
-
+        #pdb.set_trace()
         # Path to frozen detection graph. This is the actual model that is used for the object detection.
-        path_to_frozen_graph = os.path.join(path_to_model, model_filename, 'frozen_inference_graph.pb')
+        path_to_frozen_graph =path_to_model+'/' + model_filename + '/frozen_inference_graph.pb'
 
         # List of the strings that is used to add correct label for each box.
         path_to_labels = os.path.join(path_to_model, 'data', 'mscoco_label_map.pbtxt')
-
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
         # Load a (frozen) Tensorflow model into memory.
         self.detection_graph = tf.Graph()
-        self.sess = tf.Session(graph=self.detection_graph)
+        self.sess = tf.Session(graph=self.detection_graph, config=config)
         with self.detection_graph.as_default():
             od_graph_def = tf.GraphDef()
             with tf.gfile.GFile(path_to_frozen_graph, 'rb') as fid:
