@@ -80,9 +80,9 @@ Now this message also gives you two additional bool values: waving, sitting, to 
 
 and publishes to
 
-`/vision/face_detections` (DetectionArray, information about bounding boxes locations, age(not accurate but at least is somehow reasonable now), gender, e.g.'M'/'F', emotion, e.g. 'happy')
+`/vision/face_bbox_detections` (DetectionArray, information about bounding boxes locations, age(not accurate but at least is somehow reasonable now), gender, e.g.'M'/'F', emotion, e.g. 'happy')
 
 
-`/vision/face_image`, (Image, bounding boxes in an image with age and gender information for visualisation)
+`/vision/face_bbox_image`, (Image, bounding boxes in an image with age and gender information for visualisation)
 
 
