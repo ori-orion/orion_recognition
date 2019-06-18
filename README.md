@@ -44,7 +44,7 @@ Alternatively, run them separately.
 
 and publishes to
 
-`/vision/bbox_detections` (DetectionArray, information about detected bounding boxes, you can also find the mean color and the size(not accurate) of the object in this message now.)
+`/vision/bbox_detections` (DetectionArray, information about detected bounding boxes, 3d location, you can also find the mean color and the size (not accurate) of the object in this message now.)
 
 `/vision/bbox_image`, (Image, bounding boxes in an image for visualisation)
 
