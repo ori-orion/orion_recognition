@@ -12,7 +12,7 @@ import std_msgs.msg
 from sensor_msgs.msg import CameraInfo, Image
 from cv_bridge import CvBridge, CvBridgeError
 from colornames import ColorNames
-    
+
 class BboxPublisher(object):
     def __init__(self, image_topic, model_filename, path_to_tf_model, detect_object, detect_person,
                  threshold_detection):
@@ -75,17 +75,26 @@ class BboxPublisher(object):
             max_u = int(center_x + (width_box / 2.0))
             trim_depth = depth_array[min_v:max_v, min_u:max_u]
             valid = trim_depth[np.nonzero(trim_depth)]
+
             if valid.size != 0:
                 z = np.min(valid) * 1e-3
-                size = width_box * height_box / z
+                top_left_image = np.array([top_left[0], top_left[1], 0])
+                bottom_right_image = np.array([bottom_right[0], bottom_right[1], 0])
+                top_left_camera = np.dot(self._invK, top_left_image) * z
+                bottom_right_camera = np.dot(self._invK, bottom_right_image) * z
+                corner_to_corner = top_left_camera - bottom_right_camera
+                x_size = abs(corner_to_corner[0])
+                y_size = abs(corner_to_corner[1])
+                z_size = (x_size + y_size)/2.0
+                size = Point(x_size, y_size, z_size)
             else:
-                size = 0.0
+                size = Point(0.0, 0.0, 0.0)
                 print('no valid depth for object size')
                 continue
 
             image_point = np.array([int(center_x), int(center_y), 1])
             object_point = np.dot(self._invK, image_point) * z
-            
+
             detection = Detection(label, center_x, center_y, width_box, height_box, size, color, object_point[0], object_point[1], object_point[2])
             detections.append(detection)
         try:
@@ -96,7 +105,7 @@ class BboxPublisher(object):
         except CvBridgeError as e:
             print(e)
 
- 
+
 if __name__ == '__main__':
     rospy.init_node('bbox_publisher')
     img_topic = "/hsrb/head_rgbd_sensor/rgb/image_rect_color"
@@ -106,4 +115,4 @@ if __name__ == '__main__':
     detect_obj = True
     thresh = 0.4
     sub = BboxPublisher(img_topic, model_name, path_to_model, detect_obj, detect_pers, thresh)
-    rospy.spin() 
+    rospy.spin()
