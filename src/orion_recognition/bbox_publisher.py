@@ -9,6 +9,7 @@ import numpy as np
 import os
 import rospy
 import std_msgs.msg
+from geometry_msgs.msg import Point
 from sensor_msgs.msg import CameraInfo, Image
 from cv_bridge import CvBridge, CvBridgeError
 from colornames import ColorNames
