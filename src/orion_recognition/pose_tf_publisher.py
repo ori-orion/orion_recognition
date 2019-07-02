@@ -75,13 +75,22 @@ class DetectionTFPublisher(object):
                 object_point = np.dot(self._invK, image_point) * z
                 human_det[label_name].append((object_point, color))
         print(human_det)
-        for i, pos_color in enumerate(human_det[label_name]):
+
+        color_idx = {}
+        for pos_color in human_det[label_name]:
+        	pos = pos_color[0]
+        	color = pos_color[1]
+        	if color in color_idx:
+        		color_idx[color] += 1
+        	else:
+        		color_idx[color] = 0
+
             t = geometry_msgs.msg.TransformStamped()
             t.header = depth_data.header
-            t.child_frame_id = 'person' + '_' + pos_color[1] + '_' + str(i)
-            t.transform.translation.x = pos_color[0][0]
-            t.transform.translation.y = pos_color[0][1]
-            t.transform.translation.z = pos_color[0][2]
+            t.child_frame_id = 'person' + '_' + color + '_' + color_idx[color]
+            t.transform.translation.x = pos[0]
+            t.transform.translation.y = pos[1]
+            t.transform.translation.z = pos[2]
             # compute the tf frame
             # rotate -90 degrees along z-axis
             t.transform.rotation.z = np.sin(-np.pi / 4)
