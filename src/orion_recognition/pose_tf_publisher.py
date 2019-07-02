@@ -9,7 +9,7 @@ from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
 import tf2_ros
 from orion_actions.msg import PoseDetectionArray
-import pdb 
+import pdb
 
 
 class DetectionTFPublisher(object):
@@ -31,6 +31,7 @@ class DetectionTFPublisher(object):
         self._br = tf2_ros.TransformBroadcaster()
 
     def callback(self, depth_data, pose_detection):
+    	label_name = 'person_pose'
         try:
             depth_image = self.bridge.imgmsg_to_cv2(depth_data, 'passthrough')
         except CvBridgeError as e:
@@ -40,20 +41,19 @@ class DetectionTFPublisher(object):
         depth_array = np.array(depth_image, dtype=np.float32)
         human_det ={'person_pose':[]}
         for det in pose_detection.detections:
-            #pdb.set_trace()
+            # pdb.set_trace()
             z = 0.0
             upLeft_x = det.upLeft_x
             upLeft_y = det.upLeft_y
             bottomRight_x = det.bottomRight_x
             bottomRight_y = det.bottomRight_y
-            center_x = (upLeft_x+bottomRight_x)/2
-            center_y = (upLeft_y+bottomRight_y)/2
+            center_x = (upLeft_x + bottomRight_x) / 2
+            center_y = (upLeft_y + bottomRight_y) / 2
             width = bottomRight_x - upLeft_x
             height =  bottomRight_y - upLeft_y
-            if True: #detection.label.name in self._objects:
+            if True: # detection.label.name in self._objects:
                 if self._use_center:
                     # use center depth
-                    
                     z = depth_array[int(center_y)][int(center_x)] * 1e-3
                 else:
                     # use min depth in the BoundingBox
@@ -72,12 +72,11 @@ class DetectionTFPublisher(object):
                 if z == 0.0:
                     print('skip2')
                     continue
-                label_name = 'person_pose'
                 image_point = np.array([int(center_x), int(center_y), 1])
                 object_point = np.dot(self._invK, image_point) * z
                 human_det[label_name].append(object_point)
         print(human_det)
-        for i, pos in enumerate(human_det['person_pose']):
+        for i, pos in enumerate(human_det[label_name]):
             t = geometry_msgs.msg.TransformStamped()
             t.header = depth_data.header
             t.child_frame_id = 'person_pose' + '_' + str(i)
