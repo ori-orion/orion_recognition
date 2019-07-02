@@ -9,7 +9,6 @@ from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import Image
 import tf2_ros
 from orion_actions.msg import PoseDetectionArray
-import pdb
 
 
 class DetectionTFPublisher(object):
@@ -39,9 +38,8 @@ class DetectionTFPublisher(object):
             return
         trans = []
         depth_array = np.array(depth_image, dtype=np.float32)
-        human_det ={'person_pose':[]}
+        human_det ={label_name:[]}
         for det in pose_detection.detections:
-            # pdb.set_trace()
             z = 0.0
             upLeft_x = det.upLeft_x
             upLeft_y = det.upLeft_y
@@ -51,6 +49,7 @@ class DetectionTFPublisher(object):
             center_y = (upLeft_y + bottomRight_y) / 2
             width = bottomRight_x - upLeft_x
             height =  bottomRight_y - upLeft_y
+            color = det.color
             if True: # detection.label.name in self._objects:
                 if self._use_center:
                     # use center depth
@@ -74,15 +73,15 @@ class DetectionTFPublisher(object):
                     continue
                 image_point = np.array([int(center_x), int(center_y), 1])
                 object_point = np.dot(self._invK, image_point) * z
-                human_det[label_name].append(object_point)
+                human_det[label_name].append((object_point, color))
         print(human_det)
-        for i, pos in enumerate(human_det[label_name]):
+        for i, pos_color in enumerate(human_det[label_name]):
             t = geometry_msgs.msg.TransformStamped()
             t.header = depth_data.header
-            t.child_frame_id = 'person_pose' + '_' + str(i)
-            t.transform.translation.x = pos[0]
-            t.transform.translation.y = pos[1]
-            t.transform.translation.z = pos[2]
+            t.child_frame_id = 'person' + '_' + pos_color[1] + '_' + str(i)
+            t.transform.translation.x = pos_color[0][0]
+            t.transform.translation.y = pos_color[0][1]
+            t.transform.translation.z = pos_color[0][2]
             # compute the tf frame
             # rotate -90 degrees along z-axis
             t.transform.rotation.z = np.sin(-np.pi / 4)
