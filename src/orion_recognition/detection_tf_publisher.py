@@ -16,13 +16,15 @@ class DetectionTFPublisher(object):
         self.bridge = CvBridge()
         detection_sub = message_filters.Subscriber(
             "/vision/bbox_detections", DetectionArray)
+        depth_sub = message_filters.Subscriber(
+            "/hsrb/head_rgbd_sensor/depth_registered/image_rect_raw", Image)
         self._objects = rospy.get_param('~objects', [])
         self._ts = message_filters.ApproximateTimeSynchronizer(
-            [detection_sub], 30, 0.5)
+            [detection_sub, depth_sub], 30, 0.5)
         self._ts.registerCallback(self.callback)
         self._br = tf2_ros.TransformBroadcaster()
 
-    def callback(self, detections):
+    def callback(self, detections, depth_data):
         objects = {key.label.name: [] for key in detections.detections} #self._objects}
         trans = []
         for detection in detections.detections:
