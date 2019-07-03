@@ -21,6 +21,9 @@ Unzip it and place it under `src/orion_recognition`.
 
 Change the `model_name` in `scripts/bbox_publisher_node.py`.
 
+### To train a custom model
+See https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/using_your_own_dataset.md and https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/running_locally.md.
+
 ### Launch
 The launch file does not work.
 ```
@@ -68,6 +71,8 @@ Available marker points: Nose, LEye, REye, LEar, REar, LShoulder, RShoulder, LEl
 Now this message also gives you two additional bool values: waving, sitting, to predict whether this person is waving or sitting.
 
 `/vision/pose_image`, (Image, skeletons in an image for visualisation)
+
+`pose_tf_publisher_node.py` subscribes to `/vision/pose_detections` (PoseDetectionArray) and `/hsrb/head_rgbd_sensor/depth_registered/image_rect_raw` (Image) and broadcasts TF frames in the format of person_red_0, person_red_1, person_blue_0, etc.
 
 ## Face detection
 ### Launch
