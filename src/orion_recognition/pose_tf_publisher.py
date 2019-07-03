@@ -78,12 +78,12 @@ class DetectionTFPublisher(object):
 
         color_idx = {}
         for pos_color in human_det[label_name]:
-        	pos = pos_color[0]
-        	color = pos_color[1]
-        	if color in color_idx:
-        		color_idx[color] += 1
-        	else:
-        		color_idx[color] = 0
+            pos = pos_color[0]
+            color = pos_color[1]
+            if color in color_idx:
+        	    color_idx[color] += 1
+            else:
+                color_idx[color] = 0
 
             t = geometry_msgs.msg.TransformStamped()
             t.header = depth_data.header
