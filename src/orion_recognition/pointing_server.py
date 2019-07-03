@@ -3,12 +3,13 @@
 import actionlib
 import rospy
 import orion_actions
-from orion_actions.msg import Detection, DetectionArray, PoseDetection, PoseDetectionArray, Pointing, PointingArray
-
+# from orion_actions.msg import Detection, DetectionArray, PoseDetection, PoseDetectionArray, Pointing, PointingArray
+from orion_actions.msg import PoseDetection, PoseDetectionArray, Pointing, PointingArray
+from tmc_vision_msgs.msg import Detection, DetectionArray
 
 class PointingServer(object):
     def __init__(self):
-        self.omitted_objects=['table','chair']
+        self.omitted_objects = ['table', 'chair']
         rospy.loginfo("pointing -- initialising pointing server")
         self._pointing_as = actionlib.SimpleActionServer('Pointing',
                                                           orion_actions.msg.PointingAction,
@@ -33,10 +34,10 @@ class PointingServer(object):
 
     def _is_object_in_detection(self, detections, humans):
         rospy.loginfo("Pointing -- check if any one pointing any objects")
-        header=detections.header
-        pointing_array=[]
+        header = detections.header
+        pointing_array = []
         for hum in humans.detections:
-            all_pointed_objects=[]
+            all_pointed_objects = []
             LElbow_x = hum.LElbow_x
             LElbow_y = hum.LElbow_y
             RElbow_x = hum.RElbow_x
@@ -46,38 +47,38 @@ class PointingServer(object):
             RWrist_x = hum.RWrist_x
             RWrist_y = hum.RWrist_y
             color = human.color
-            slope_L = (LWrist_y - LElbow_y)/ (LWrist_x - LElbow_x)
-            slope_R = (LWrist_y - LElbow_y)/ (LWrist_x - LElbow_x)
+            slope_L = (LWrist_y - LElbow_y) / (LWrist_x - LElbow_x)
+            slope_R = (LWrist_y - LElbow_y) / (LWrist_x - LElbow_x)
             for det in detections.detections:
                 if LWrist_x < LElbow_x:
-                #check for left hand.
+                # check for left hand.
                     if det.x < LWrist_x:
                         intersect_y = LWrist_y + slope_L * (det.x - LWrist_x)
-                        if intersect_y > (det.y - det.height/2) and intersect_y < (det.y + det.height/2):
+                        if intersect_y > (det.y - det.height / 2) and intersect_y < (det.y + det.height / 2):
                             all_pointed_objects.append(det)    
                 else:
                     if det.x > LWrist_x:
                         intersect_y = LWrist_y + slope_L * (det.x - LWrist_x)
-                        if intersect_y > (det.y - det.height/2) and intersect_y < (det.y + det.height/2):
+                        if intersect_y > (det.y - det.height / 2) and intersect_y < (det.y + det.height / 2):
                             all_pointed_objects.append(det)
                 if RWrist_x < RElbow_x:
-                #check for left hand.
+                # check for left hand.
                     if det.x < RWrist_x:
                         intersect_y = RWrist_y + slope_R * (det.x - RWrist_x)
-                        if intersect_y > (det.y - det.height/2) and intersect_y < (det.y + det.height/2):
+                        if intersect_y > (det.y - det.height / 2) and intersect_y < (det.y + det.height / 2):
                             all_pointed_objects.append(det)    
                 else:
                     if det.x > RWrist_x:
                         intersect_y = RWrist_y + slope_R * (det.x - RWrist_x)
-                        if intersect_y > (det.y - det.height/2) and intersect_y < (det.y + det.height/2):
+                        if intersect_y > (det.y - det.height / 2) and intersect_y < (det.y + det.height / 2):
                             all_pointed_objects.append(det)
                 
 
-            if len(all_pointed_objects)!=0:
+            if len(all_pointed_objects) != 0:
                 point_msg = Pointing(all_pointed_objects, color) 
                 pointing_array.append(point_msg)
         
-        if len(pointing_array!=0):
+        if len(pointing_array != 0):
             pointing_array_msg = PointingArray(header,pointing_array)
             return True, pointing_array_msg
         rospy.loginfo("People are not detected.")
