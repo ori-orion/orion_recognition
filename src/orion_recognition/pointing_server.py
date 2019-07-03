@@ -46,9 +46,9 @@ class PointingServer(object):
             LWrist_y = hum.LWrist_y
             RWrist_x = hum.RWrist_x
             RWrist_y = hum.RWrist_y
-            color = human.color
+            color = hum.color
             slope_L = (LWrist_y - LElbow_y) / (LWrist_x - LElbow_x)
-            slope_R = (LWrist_y - LElbow_y) / (LWrist_x - LElbow_x)
+            slope_R = (RWrist_y - RElbow_y) / (RWrist_x - RElbow_x)
             for det in detections.detections:
                 if LWrist_x < LElbow_x:
                 # check for left hand.
@@ -86,7 +86,7 @@ class PointingServer(object):
 
     def _check_and_send_result_if_succeeded(self):
         rospy.loginfo("Pointing -- checking and sending result if succeeded")
-        detections = rospy.wait_for_message('/vision/bbox_detections', DetectionArray, 5 * 60)
+        detections = rospy.wait_for_message('/yolo2_node/detections', DetectionArray, 5 * 60)
         humans = rospy.wait_for_message('/vision/pose_detections', PoseDetectionArray, 5 * 60)
         rospy.loginfo("Pointing -- detections received")
 
