@@ -18,6 +18,7 @@ import torchvision.transforms as transforms
 class BboxPublisher(object):
     def __init__(self, image_topic, detect_object, detect_person, threshold_detection):
         self.detector = object_detector.ObjectDetector()
+        self.detector.eval()
         # Subscribers        
         self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=100)
         self.depth_sub = message_filters.Subscriber("/hsrb/head_rgbd_sensor/depth_registered/image_rect_raw", Image)
