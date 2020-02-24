@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 
-import object_detector
+import orion_recognition.object_detector
 import message_filters
 from orion_actions.msg import Detection, DetectionArray, Label
 import pdb
+import sys
+sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
+sys.path.append('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import numpy as np
 import os
 import rospy
@@ -12,12 +15,12 @@ import std_msgs.msg
 from geometry_msgs.msg import Point
 from sensor_msgs.msg import CameraInfo, Image
 from cv_bridge import CvBridge, CvBridgeError
-from colornames import ColorNames
+from orion_recognition.colornames import ColorNames
 import torchvision.transforms as transforms
 
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
-        self.detector = object_detector.ObjectDetector()
+        self.detector = orion_recognition.object_detector.ObjectDetector()
         self.detector.eval()
         # Subscribers        
         self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=100)
