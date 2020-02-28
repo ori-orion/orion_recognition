@@ -53,7 +53,7 @@ class BboxPublisher(object):
                          dtype=np.float32)
 
         image_np = np.asarray(image)
-        image_tensor = transforms.ToTensor(image)
+        image_tensor = transforms.ToTensor()(image)
         img_x = image_tensor.size()[2]
         img_y = image_tensor.size()[1]
         
@@ -91,6 +91,7 @@ class BboxPublisher(object):
                 top_left_camera = np.dot(self._invK, top_left_3d)*z
                 bottom_right_3d = np.array([bottom_right[0], bottom_right[1], 0])
                 bottom_right_camera = np.dot(self._invK, bottom_right_3d)*z
+                corner_to_corner = top_left_camera - bottom_right_camera
                 x_size = abs(corner_to_corner[0])
                 y_size = abs(corner_to_corner[1])
                 z_size = (x_size + y_size)/2.0
@@ -105,13 +106,13 @@ class BboxPublisher(object):
             obj = np.dot(self._invK, image_point) * z
 
             # Get Colour
-            crop = np_image[int(box[0]):int(box[2]), int(box[1]):int(box[3])]
+            crop = image_np[int(box[0]):int(box[2]), int(box[1]):int(box[3])]
             RGB = np.mean(crop, axis=(0,1))
             RGB = (RGB[2], RGB[1], RGB[0])
             colour = ColorNames.findNearestOrionColorName(RGB)
             
             # create label
-            score_lbl = Label(float(label).encode('ascii','ignore'), np.float64(score))
+            score_lbl = Label(str(label).encode('ascii','ignore'), np.float64(score))
             
             # create detection instance
             detection = Detection(score_lbl, center_x, center_y, width, height, size, colour, obj[0], obj[1], obj[2])
