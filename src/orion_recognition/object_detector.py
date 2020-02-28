@@ -21,11 +21,12 @@ class ObjectDetector(torch.nn.Module):
         self.model.to(self.device).float()
 
     def forward(self, img):
-        x.to(self.device).float()
-        x = torch.as_tensor(img, trainable=False)
+        img = np.concatenate(img)
+        x = torch.as_tensor(img).requires_grad(False).to(self.device).float().unsqueeze(0)
         y = self.model(x)
         
-        return y.cpu().numpy()
+        y = [{k: v.cpu().detach().numpy() for k,v in y[i].items()} for i in range(len(y))]
+        return y 
 
 
 
