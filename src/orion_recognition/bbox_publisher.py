@@ -4,9 +4,9 @@ import orion_recognition.object_detector
 import message_filters
 from orion_actions.msg import Detection, DetectionArray, Label
 import sys
-sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+sys.path.remove('/opt/ros/melodic/lib/python2.7/dist-packages')
 import cv2
-sys.path.append('/opt/ros/kinetic/lib/python2.7/dist-packages')
+sys.path.append('/opt/ros/melodic/lib/python2.7/dist-packages')
 import numpy as np
 import rospy
 import std_msgs.msg
