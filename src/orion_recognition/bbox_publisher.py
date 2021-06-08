@@ -23,7 +23,7 @@ class BboxPublisher(object):
         self.detector = orion_recognition.object_detector.ObjectDetector()
         self.detector.eval()
         # Label dictionary
-        f = open('coco_labels.txt')
+        f = open('coco_labels2017.txt')
         self.label_dict = f.readlines()
         f.close()
 
@@ -48,7 +48,7 @@ class BboxPublisher(object):
 
         #Register a subscriber
         self.subscribers.registerCallback(self.callback)
-
+    
     def callback(self, ros_image, depth_data):
         # get images from cv bridge
         image = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
@@ -59,7 +59,8 @@ class BboxPublisher(object):
         image_tensor = transforms.ToTensor()(image)
 
         #apply model to image
-        detections = self.detector([image_tensor])[0]
+        with torch.no_grad():
+            detections = self.detector([image_tensor])[0]
 
         boxes = detections['boxes']
         labels = detections['labels']
@@ -112,7 +113,7 @@ class BboxPublisher(object):
             colour = ColorNames.findNearestOrionColorName(RGB)
 
             # create label
-            score_lbl = Label(str(self.label_dict[int(label)-1]).encode('ascii', 'ignore'),
+            score_lbl = Label(str(self.label_dict[int(label)]).encode('ascii', 'ignore'),
                               np.float64(score))
 
             # create detection instance
@@ -120,13 +121,15 @@ class BboxPublisher(object):
                                   size, colour, obj[0], obj[1], obj[2])
 
             detections.append(detection)
-            boxes_nms.append(box)
-            scores_nms.append(float(score))
+            with torch.no_grad():
+                boxes_nms.append(torch.as_tensor(box))
+                scores_nms.append(torch.as_tensor(float(score)))
 
         # Perform non-maximum suppression on boxes according to their intersection over union (IoU)
-        boxes_nms = torch.stack(boxes_nms)
-        scores_nms = torch.stack(scores_nms)
-        keep = ops.nms(boxes_nms, scores_nms, 0.5)
+        with torch.no_grad():
+            boxes_nms = torch.stack(boxes_nms)
+            scores_nms = torch.stack(scores_nms)
+            keep = ops.nms(boxes_nms, scores_nms, 0.5)
 
         clean_detections = [detections[i] for i in keep]
 
