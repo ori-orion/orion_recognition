@@ -18,6 +18,12 @@ import torchvision.transforms as transforms
 import torchvision.ops as ops
 import torch
 
+min_acceptable_score = 0.25
+# When performing non-maximum suppression, the intersection-over-union threshold defines
+# the proportion of intersection a bounding box must cover before it is determined to be 
+# part of the same object. 
+iou_threshold = 0.80
+
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
         self.detector = orion_recognition.object_detector.ObjectDetector()
@@ -69,6 +75,7 @@ class BboxPublisher(object):
         detections = []
         boxes_nms = []
         scores_nms = []
+	labels_nms = []
 
         for i in range(len(boxes)):
             box = boxes[i]
@@ -113,7 +120,7 @@ class BboxPublisher(object):
             colour = ColorNames.findNearestOrionColorName(RGB)
 
             # create label
-            score_lbl = Label(str(self.label_dict[int(label)]).encode('ascii', 'ignore'),
+            score_lbl = Label(str(self.label_dict[int(label)-1]).encode('ascii', 'ignore'),
                               np.float64(score))
 
             # create detection instance
@@ -121,15 +128,19 @@ class BboxPublisher(object):
                                   size, colour, obj[0], obj[1], obj[2])
 
             detections.append(detection)
-            with torch.no_grad():
-                boxes_nms.append(torch.as_tensor(box))
-                scores_nms.append(torch.as_tensor(float(score)))
+	    if score > min_acceptable_score:
+            	with torch.no_grad():
+                    boxes_nms.append(torch.as_tensor(box))
+                    scores_nms.append(torch.as_tensor(float(score)))
+		    labels_nms.append(torch.as_tensor(float(label)))
 
         # Perform non-maximum suppression on boxes according to their intersection over union (IoU)
         with torch.no_grad():
             boxes_nms = torch.stack(boxes_nms)
             scores_nms = torch.stack(scores_nms)
-            keep = ops.nms(boxes_nms, scores_nms, 0.5)
+	    labels_nms = torch.stack(labels_nms)
+            #keep = ops.batched_nms(boxes_nms, scores_nms, labels_nms,iou_threshold)
+	    keep = ops.nms(boxes_nms, scores_nms,iou_threshold)
 
         clean_detections = [detections[i] for i in keep]
 
@@ -138,6 +149,7 @@ class BboxPublisher(object):
             top_left = (int(boxes_nms[j][0]), int(boxes_nms[j][1]))
             bottom_right = (int(boxes_nms[j][2]), int(boxes_nms[j][3]))
             cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 3)
+	    cv2.putText(image, str(labels[j])+': '+str(self.label_dict[int(labels[j])-1])+str(scores_nms[j]), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)	
 
         # Publish nodes
         try:
