@@ -16,6 +16,7 @@ from cv_bridge import CvBridge, CvBridgeError
 from orion_recognition.colornames import ColorNames
 import torchvision.transforms as transforms
 import torchvision.ops as ops
+import rospkg
 import torch
 
 min_acceptable_score = 0.25
@@ -28,10 +29,13 @@ class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
         self.detector = orion_recognition.object_detector.ObjectDetector()
         self.detector.eval()
-        # Label dictionary
-        f = open('coco_labels2017.txt')
-        self.label_dict = f.readlines()
-        f.close()
+
+        # Read in the label dictionary from any location on the system
+        rospack = rospkg.RosPack()
+        label_file = os.path.join(rospack.get_path('orion_recognition'),
+                            'src/orion_recognition/coco_labels2017.txt')
+        with open(label_file, 'r') as in_file:
+            self.label_dict = f.readlines()
 
         # Subscribers
         self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=100)
@@ -75,7 +79,11 @@ class BboxPublisher(object):
         detections = []
         boxes_nms = []
         scores_nms = []
-	labels_nms = []
+        labels_nms = []
+        # NOTE: Start of block to be tested ------
+        boxes_per_label = {}
+        scores_per_label = {}
+        # NOTE: End of block to be tested ------
 
         for i in range(len(boxes)):
             box = boxes[i]
@@ -128,19 +136,40 @@ class BboxPublisher(object):
                                   size, colour, obj[0], obj[1], obj[2])
 
             detections.append(detection)
-	    if score > min_acceptable_score:
+            if score > min_acceptable_score:
             	with torch.no_grad():
                     boxes_nms.append(torch.as_tensor(box))
                     scores_nms.append(torch.as_tensor(float(score)))
-		    labels_nms.append(torch.as_tensor(float(label)))
+                    labels_nms.append(torch.as_tensor(float(label)))
+                    # NOTE: Start of block to be tested ------
+                    # Seperate by label for batched nms later on
+                    if label not in boxes_per_label:
+                        boxes_per_label[label] = []
+                        scores_per_label[label] = []
+                    boxes_per_label[label].append(boxes_nms[-1])
+                    scores_per_label[label].append(scores_nms[-1])
+                    # NOTE: End of block to be tested ------
 
         # Perform non-maximum suppression on boxes according to their intersection over union (IoU)
         with torch.no_grad():
             boxes_nms = torch.stack(boxes_nms)
             scores_nms = torch.stack(scores_nms)
-	    labels_nms = torch.stack(labels_nms)
+            labels_nms = torch.stack(labels_nms)
             #keep = ops.batched_nms(boxes_nms, scores_nms, labels_nms,iou_threshold)
-	    keep = ops.nms(boxes_nms, scores_nms,iou_threshold)
+            #keep = ops.nms(boxes_nms, scores_nms,iou_threshold)
+            # NOTE: Start of block to be tested ------
+            # A hacky equivalent of batched_nms, since we can't run that in Python 2!
+            keep = None
+            for label in boxes_per_label:
+                current_boxes_nms = torch.stack(boxes_per_label[label])
+                current_scores_nms = torch.stack(scores_per_label[label])
+                nms_res = ops.nms(current_boxes_nms, scores_nms, iou_threshold)
+                if keep is None:
+                    keep = nms_res
+                else:
+                    keep = torch.cat((keep,nms_res))
+            # NOTE: End of block to be tested ------
+
 
         clean_detections = [detections[i] for i in keep]
 
@@ -149,7 +178,7 @@ class BboxPublisher(object):
             top_left = (int(boxes_nms[j][0]), int(boxes_nms[j][1]))
             bottom_right = (int(boxes_nms[j][2]), int(boxes_nms[j][3]))
             cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 3)
-	    cv2.putText(image, str(labels[j])+': '+str(self.label_dict[int(labels[j])-1])+str(scores_nms[j]), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)	
+            cv2.putText(image, str(labels[j])+': '+str(self.label_dict[int(labels[j])-1])+str(scores_nms[j]), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)	
 
         # Publish nodes
         try:
