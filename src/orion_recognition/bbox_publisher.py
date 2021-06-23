@@ -83,6 +83,7 @@ class BboxPublisher(object):
         # NOTE: Start of block to be tested ------
         boxes_per_label = {}
         scores_per_label = {}
+        detections_per_label = {}
         # NOTE: End of block to be tested ------
 
         for i in range(len(boxes)):
@@ -146,8 +147,10 @@ class BboxPublisher(object):
                     if label not in boxes_per_label:
                         boxes_per_label[label] = []
                         scores_per_label[label] = []
+                        detections_per_label[label] = []
                     boxes_per_label[label].append(boxes_nms[-1])
                     scores_per_label[label].append(scores_nms[-1])
+                    detections_per_label[label].append(detection)
                     # NOTE: End of block to be tested ------
 
         # Perform non-maximum suppression on boxes according to their intersection over union (IoU)
@@ -159,18 +162,15 @@ class BboxPublisher(object):
             #keep = ops.nms(boxes_nms, scores_nms,iou_threshold)
             # NOTE: Start of block to be tested ------
             # A hacky equivalent of batched_nms, since we can't run that in Python 2!
-            keep = None
+            keep = {}
             for label in boxes_per_label:
                 current_boxes_nms = torch.stack(boxes_per_label[label])
                 current_scores_nms = torch.stack(scores_per_label[label])
                 nms_res = ops.nms(current_boxes_nms, scores_nms, iou_threshold)
-                if keep is None:
-                    keep = nms_res
-                else:
-                    keep = torch.cat((keep,nms_res))
+                keep[label] = nms_res
             # NOTE: End of block to be tested ------
 
-
+        """ compatible with old version of keep
         clean_detections = [detections[i] for i in keep]
 
         #Draw bounding boxes of cleaned detections onto image
@@ -179,7 +179,19 @@ class BboxPublisher(object):
             bottom_right = (int(boxes_nms[j][2]), int(boxes_nms[j][3]))
             cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 3)
             cv2.putText(image, str(labels[j])+': '+str(self.label_dict[int(labels[j])-1])+str(scores_nms[j]), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)	
+        """
+        # NOTE: Start of block to be tested ------
+        clean_detections = []
 
+        for label in boxes_per_label:
+            clean_detections += [detections_per_label[label][i] for i in keep[label]]
+            for j in keep[label]:
+                top_left = (int(boxes_per_label[label][j][0]), int(boxes_per_label[label][j][1]))
+            bottom_right = (int(boxes_per_label[label][j][2]), int(boxes_per_label[label][j][3]))
+            cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 3)
+            cv2.putText(image, str(label)+': '+str(str(self.label_dict[int(label)-1]))+str(scores_per_label[label][j]), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
+        # NOTE: End of block to be tested ------
+        
         # Publish nodes
         try:
             h = std_msgs.msg.Header()
