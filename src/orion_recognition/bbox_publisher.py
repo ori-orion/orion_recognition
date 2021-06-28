@@ -18,8 +18,9 @@ import torchvision.transforms as transforms
 import torchvision.ops as ops
 import rospkg
 import torch
+import os
 
-min_acceptable_score = 0.25
+min_acceptable_score = 0.50
 # When performing non-maximum suppression, the intersection-over-union threshold defines
 # the proportion of intersection a bounding box must cover before it is determined to be 
 # part of the same object. 
@@ -35,7 +36,7 @@ class BboxPublisher(object):
         label_file = os.path.join(rospack.get_path('orion_recognition'),
                             'src/orion_recognition/coco_labels2017.txt')
         with open(label_file, 'r') as in_file:
-            self.label_dict = f.readlines()
+            self.label_dict = in_file.readlines()
 
         # Subscribers
         self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=100)
@@ -129,8 +130,8 @@ class BboxPublisher(object):
             colour = ColorNames.findNearestOrionColorName(RGB)
 
             # create label
-            score_lbl = Label(str(self.label_dict[int(label)-1]).encode('ascii', 'ignore'),
-                              np.float64(score))
+	    label_str =  '_'.join(str(self.label_dict[int(label)-1]).encode('ascii', 'ignore').split(' '))
+            score_lbl = Label(label_str, np.float64(score))
 
             # create detection instance
             detection = Detection(score_lbl, center_x, center_y, width, height,
