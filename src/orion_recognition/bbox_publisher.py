@@ -131,6 +131,7 @@ class BboxPublisher(object):
 
             # create label
 	    label_str =  '_'.join(str(self.label_dict[int(label)-1]).encode('ascii', 'ignore').split(' '))
+            label_str = label_str.rstrip()
             score_lbl = Label(label_str, np.float64(score))
 
             # create detection instance
