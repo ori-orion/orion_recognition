@@ -157,19 +157,22 @@ class BboxPublisher(object):
 
         # Perform non-maximum suppression on boxes according to their intersection over union (IoU)
         with torch.no_grad():
-            boxes_nms = torch.stack(boxes_nms)
-            scores_nms = torch.stack(scores_nms)
-            labels_nms = torch.stack(labels_nms)
+            if len(boxes_nms) != 0:
+                boxes_nms = torch.stack(boxes_nms)
+                scores_nms = torch.stack(scores_nms)
+                labels_nms = torch.stack(labels_nms)
             #keep = ops.batched_nms(boxes_nms, scores_nms, labels_nms,iou_threshold)
             #keep = ops.nms(boxes_nms, scores_nms,iou_threshold)
             # NOTE: Start of block to be tested ------
             # A hacky equivalent of batched_nms, since we can't run that in Python 2!
             keep = {}
             for label in boxes_per_label:
-                current_boxes_nms = torch.stack(boxes_per_label[label])
-                current_scores_nms = torch.stack(scores_per_label[label])
-                nms_res = ops.nms(current_boxes_nms, scores_nms, iou_threshold)
-                keep[label] = nms_res
+                if len(boxes_per_label[label]) != 0:
+                    current_boxes_nms = torch.stack(boxes_per_label[label])
+                    current_scores_nms = torch.stack(scores_per_label[label])
+                    nms_res = ops.nms(current_boxes_nms, 
+                                      scores_nms, iou_threshold)
+                    keep[label] = nms_res
             # NOTE: End of block to be tested ------
 
         """ compatible with old version of keep
