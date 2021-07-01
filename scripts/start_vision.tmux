@@ -36,7 +36,7 @@ tmux send-keys "nvidia-smi"
 
 tmux select-window -t $SESSION:battery_checker
 [ -f $ORION_WS ] && `$_SRC_ENV`
-tmux send-keys "rosrun orion_battery_check laptop_battery_publisher.py" C-m
+tmux send-keys "hsrb_mode; rosrun orion_battery_check laptop_battery_publisher.py" C-m
 
 tmux select-window -t $SESSION:human_pose_detector
 [ -f $ORION_WS ] && `$_SRC_ENV`
