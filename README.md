@@ -1,3 +1,5 @@
+Branch `noetic` is based off `clarissa`, but is changed over to python3 instead of python2.
+
 # orion_recognition
 
 ```
