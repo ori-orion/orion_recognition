@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from pose_detector_ros import PoseDetector
 from orion_actions.msg import PoseDetection, PoseDetectionArray
@@ -33,7 +33,7 @@ class PosePublisher(object):
             img,outputs = self.detector.detect(np_image)
             #print(outputs)
             if isinstance(outputs, int):
-                print 'No Detection'
+                print ('No Detection')
                 img=image
             else:
                 detections = []

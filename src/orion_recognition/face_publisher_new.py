@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from new_face.src.test.face_detector import FaceDetector
 from orion_actions.msg import FaceDetection, FaceDetectionArray
@@ -37,12 +37,12 @@ class FacePublisher(object):
             bboxes, predicted_ages, predicted_genders, predicted_emotions = self.detector.detect(np_image)
             
             if bboxes is None:
-                print 'No face detected'
+                print( 'No face detected')
                 return 0
             detections = []
             all_ids = range(len(bboxes))
             for indx in all_ids:
-                print 'Detection'
+                print( 'Detection')
                 people_id = int(indx)
                 face_bbox = bboxes[indx]
                 age = predicted_ages[indx]

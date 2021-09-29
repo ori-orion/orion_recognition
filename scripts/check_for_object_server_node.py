@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
 from orion_recognition.check_for_object_server import CheckForObjectServer
