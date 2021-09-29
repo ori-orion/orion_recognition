@@ -61,6 +61,8 @@ class BboxPublisher(object):
         self.subscribers.registerCallback(self.callback)
     
     def callback(self, ros_image, depth_data):
+        print("\n\n----------------------------------------------------------------------")
+
         # get images from cv bridge
         image = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
         depth = np.array(self.bridge.imgmsg_to_cv2(depth_data, 'passthrough'),
@@ -116,7 +118,7 @@ class BboxPublisher(object):
                 size = Point(x_size, y_size, z_size)
             else:
                 size = Point(0.0, 0.0, 0.0)
-                print('no valid depth for object size')
+                print('\tno valid depth for object size', end="")
                 continue
 
             # Find object position
@@ -130,9 +132,12 @@ class BboxPublisher(object):
             colour = ColorNames.findNearestOrionColorName(RGB)
 
             # create label
-            label_str = '_'.join(str(self.label_dict[int(label)-1]).encode('ascii', 'ignore').split(' '));
+            # label_str = '_'.join(str(self.label_dict[int(label)-1]).encode('ascii', 'ignore').split(' '));
+            label_str = '_'.join(str(self.label_dict[int(label)-1]).replace('\n', '').split(' '));
             label_str = label_str.rstrip()
             score_lbl = Label(label_str, np.float64(score))
+
+            print("\n", label_str, end="");
 
             # create detection instance
             detection = Detection(score_lbl, center_x, center_y, width, height,
@@ -171,7 +176,9 @@ class BboxPublisher(object):
                     current_boxes_nms = torch.stack(boxes_per_label[label])
                     current_scores_nms = torch.stack(scores_per_label[label])
                     nms_res = ops.nms(current_boxes_nms, 
-                                      scores_nms, iou_threshold)
+                                      current_scores_nms, iou_threshold)
+                    # nms_res = ops.nms(current_boxes_nms, 
+                    #                   scores_nms, iou_threshold)
                     keep[label] = nms_res
             # NOTE: End of block to be tested ------
 
