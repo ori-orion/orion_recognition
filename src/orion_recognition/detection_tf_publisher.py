@@ -24,7 +24,7 @@ class DetectionTFPublisher(object):
         self._ts.registerCallback(self.callback)
         self._br = tf2_ros.TransformBroadcaster()
 
-    def callback(self, detections, depth_data):
+    def callback(self, detections:DetectionArray, depth_data:Image):
         objects = {key.label.name: [] for key in detections.detections} #self._objects}
         trans = []
         for detection in detections.detections:
