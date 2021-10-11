@@ -8,6 +8,7 @@ sys.path.remove('/opt/ros/noetic/lib/python3/dist-packages')
 import cv2
 sys.path.append('/opt/ros/noetic/lib/python3/dist-packages')
 import numpy as np
+import math;
 import rospy
 import std_msgs.msg
 from geometry_msgs.msg import Point
@@ -60,6 +61,50 @@ class BboxPublisher(object):
         #Register a subscriber
         self.subscribers.registerCallback(self.callback)
     
+    def getMeanDepth_gaussian(self, depth):
+        """Ok so we want to mean over the depth image using a gaussian centred at the 
+        mid point
+        Gausian is defined as e^{-(x/\sigma)^2}
+
+        Now, e^{-(x/sigma)^2}|_{x=1.5, sigma=1}=0.105 which is small enough. I'll therefore set the width of 
+        the depth image to be 3 standard deviations. (Remember, there're going to be two distributions 
+        multiplied together here! so that makes the corners 0.011 times as strong as the centre of the image.)
+
+        I'm then going to do (2D_gaussian \cdot image) / sum(2D_gaussian) 
+            (accounting for valid and invalid depth pixels on the way.)
+
+        This should give a fairly good approximation for the depth.
+        """
+
+        def shiftedGaussian(x:float, shift:float, s_dev:float) -> float:
+            return math.exp(-pow((x-shift)/s_dev, 2));
+
+        width:float = depth.shape[0];
+        height:float = depth.shape[1];
+        x_s_dev:float = width / 3;
+        y_s_dev:float = height / 3;
+        x_shift:float = width/2;
+        y_shift:float = height/2;
+
+        # We need some record of the total amount of gaussian over the image so that we can work out
+        # what to divide by. 
+        gaussian_sum:float = 0;
+        depth_sum:float = 0;
+
+        for x in range(width):
+            x_gaussian = shiftedGaussian(x, x_shift, x_s_dev);
+            for y in range(height):
+                if (depth[x,y] != 0):
+                    point_multiplier:float = x_gaussian * shiftedGaussian(y, y_shift, y_s_dev);
+                    gaussian_sum += point_multiplier;
+                    depth_sum += depth[x,y] * point_multiplier;
+                pass;
+            pass;
+
+
+        return depth_sum / gaussian_sum;
+        
+
     def callback(self, ros_image, depth_data):
         print("\n\n----------------------------------------------------------------------")
 
@@ -106,7 +151,9 @@ class BboxPublisher(object):
 
             # Use depth to get position, and if depth is not valid, discard bounding box
             if valid.size != 0:
-                z = np.min(valid) * 1e-3
+                # z = np.min(valid) * 1e-3
+                z = self.getMeanDepth_gaussian(trim_depth);
+                
                 top_left_3d = np.array([int(box[0]), int(box[1]), 0])
                 top_left_camera = np.dot(self._invK, top_left_3d)*z
                 bottom_right_3d = np.array([int(box[2]), int(box[3]), 0])
