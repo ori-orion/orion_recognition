@@ -151,8 +151,8 @@ class BboxPublisher(object):
 
             # Use depth to get position, and if depth is not valid, discard bounding box
             if valid.size != 0:
-                # z = np.min(valid) * 1e-3
-                z = self.getMeanDepth_gaussian(trim_depth) * 1e-3;
+                z = np.min(valid) * 1e-3
+                # z = self.getMeanDepth_gaussian(trim_depth) * 1e-3;
                 
                 top_left_3d = np.array([int(box[0]), int(box[1]), 0])
                 top_left_camera = np.dot(self._invK, top_left_3d)*z
