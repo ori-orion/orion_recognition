@@ -40,15 +40,15 @@ class BboxPublisher(object):
             self.label_dict = in_file.readlines()
 
         # Subscribers
-        self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=100)
+        self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=1)     # TODO - see if changing from 100 will help for sim image backlog
         self.depth_sub = message_filters.Subscriber(depth_topic, Image)
 
         #synchronise subscribers
-        self.subscribers = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 30, 0.5)
+        self.subscribers = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 1, 1.0)
 
         #Publishers
-        self.image_pub = rospy.Publisher('/vision/bbox_image', Image, queue_size=100)
-        self.detections_pub = rospy.Publisher('/vision/bbox_detections', DetectionArray, queue_size=100)
+        self.image_pub = rospy.Publisher('/vision/bbox_image', Image, queue_size=10)
+        self.detections_pub = rospy.Publisher('/vision/bbox_detections', DetectionArray, queue_size=10)
 
         #Image calibrator
         camera_info = rospy.wait_for_message(
@@ -151,8 +151,8 @@ class BboxPublisher(object):
 
             # Use depth to get position, and if depth is not valid, discard bounding box
             if valid.size != 0:
-                # z = np.min(valid) * 1e-3
-                z = self.getMeanDepth_gaussian(trim_depth) * 1e-3;
+                z = np.min(valid) * 1e-3
+                # z = self.getMeanDepth_gaussian(trim_depth) * 1e-3;
                 
                 top_left_3d = np.array([int(box[0]), int(box[1]), 0])
                 top_left_camera = np.dot(self._invK, top_left_3d)*z
