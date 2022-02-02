@@ -30,7 +30,7 @@ class DetectionTFPublisher(object):
         self._br = tf2_ros.TransformBroadcaster()
 
     def callback(self, depth_data, pose_detection):
-    	label_name = 'person_pose'
+        label_name = 'person_pose'
         try:
             depth_image = self.bridge.imgmsg_to_cv2(depth_data, 'passthrough')
         except CvBridgeError as e:
