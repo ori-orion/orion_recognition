@@ -4,11 +4,20 @@
 SESSION=vision
 
 # Set this variable in order to source ORIon ROS workspace
-ORION_WS=/home/ori/orion_ws/devel/setup.bash
+ORION_WS=/home/$USER/orion_ws/devel/setup.bash
+
+# Set this variable to run in everything in simulation, with a local roscore. Otherwise, run on HSRB
+SIM_MODE=true
+
+if [ $SIM_MODE==true ]; then
+ROS_MASTER_CMD="sim_mode"
+else
+ROS_MASTER_CMD="hsrb_mode"
+fi
 
 _SRC_ENV="tmux send-keys source Space $ORION_WS C-m "
 
-PREFIX="hsrb_mode; source $ORION_WS; source activate tf2;"
+PREFIX="$ROS_MASTER_CMD; source $ORION_WS; source activate tf2;"
 
 tmux -2 new-session -d -s $SESSION
 tmux rename-window -t $SESSION:0 'bbox_publisher'
@@ -28,7 +37,7 @@ tmux send-keys "$PREFIX rosrun orion_recognition detection_tf_publisher_node.py"
 
 tmux select-window -t $SESSION:visualise
 [ -f $ORION_WS ] && `$_SRC_ENV`
-tmux send-keys "hsrb_mode; rqt_image_view" C-m
+tmux send-keys "$PREFIX rqt_image_view" C-m
 
 tmux select-window -t $SESSION:gpu_stats
 [ -f $ORION_WS ] && `$_SRC_ENV`
@@ -36,7 +45,7 @@ tmux send-keys "nvidia-smi"
 
 tmux select-window -t $SESSION:battery_checker
 [ -f $ORION_WS ] && `$_SRC_ENV`
-tmux send-keys "hsrb_mode; rosrun orion_battery_check laptop_battery_publisher.py" C-m
+tmux send-keys "$PREFIX rosrun orion_battery_check laptop_battery_publisher.py" C-m
 
 tmux select-window -t $SESSION:human_pose_detector
 [ -f $ORION_WS ] && `$_SRC_ENV`
