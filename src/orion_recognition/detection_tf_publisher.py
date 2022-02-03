@@ -13,18 +13,20 @@ from orion_actions.msg import DetectionArray
 
 class DetectionTFPublisher(object):
     def __init__(self):
+        print("Initialising DetectionTFPublisher...")
         self.bridge = CvBridge()
         detection_sub = message_filters.Subscriber(
             "/vision/bbox_detections", DetectionArray)
         depth_sub = message_filters.Subscriber(
             "/hsrb/head_rgbd_sensor/depth_registered/image_rect_raw", Image)
         self._objects = rospy.get_param('~objects', [])
-        self._ts = message_filters.ApproximateTimeSynchronizer(
-            [detection_sub, depth_sub], 30, 0.5)
+        self._ts = message_filters.ApproximateTimeSynchronizer([detection_sub, depth_sub], 30, 0.5)
         self._ts.registerCallback(self.callback)
         self._br = tf2_ros.TransformBroadcaster()
+        print("...finished Initialising")
 
     def callback(self, detections:DetectionArray, depth_data:Image):
+        # print("callback ran")
         objects = {key.label.name: [] for key in detections.detections} #self._objects}
         trans = []
         for detection in detections.detections:
@@ -34,6 +36,7 @@ class DetectionTFPublisher(object):
         
         for obj in objects:
             for i, pos in enumerate(objects[obj]):
+                # print("Broadcasting tf for object: {}".format(obj + '_' + str(i)))
                 t = geometry_msgs.msg.TransformStamped()
                 t.header = depth_data.header
                 t.child_frame_id = obj + '_' + str(i)
@@ -50,5 +53,6 @@ class DetectionTFPublisher(object):
 
 if __name__ == '__main__':
     rospy.init_node('detection_tf_publisher')
+    # print("Starting up detection_tf_publisher node")
     DetectionTFPublisher()
     rospy.spin()
