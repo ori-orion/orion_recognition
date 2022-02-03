@@ -149,6 +149,10 @@ class BboxPublisher(object):
             trim_depth = depth[int(box[0]):int(box[2]), int(box[1]):int(box[2])]
             valid = trim_depth[np.nonzero(trim_depth)]
 
+            # Discard any bounding boxes with zero trim_depth size
+            if trim_depth.size == 0:
+                continue
+
             # Use depth to get position, and if depth is not valid, discard bounding box
             if valid.size != 0:
                 z = np.min(valid) * 1e-3
@@ -165,7 +169,13 @@ class BboxPublisher(object):
                 size = Point(x_size, y_size, z_size)
             else:
                 size = Point(0.0, 0.0, 0.0)
+                print('\n')
+                print('\n')
+                print("Trim depth size: {}".format(trim_depth.size))
                 print('\tno valid depth for object size', end="")
+                print('\n')
+                print('\n')
+
                 continue
 
             # Find object position
