@@ -7,17 +7,27 @@ SESSION=vision
 ORION_WS=/home/$USER/orion_ws/devel/setup.bash
 
 # Set this variable to run in everything in simulation, with a local roscore. Otherwise, run on HSRB
-SIM_MODE=true
+SIM_MODE=false
 
-if [ $SIM_MODE==true ]; then
-ROS_MASTER_CMD="sim_mode"
+# Set SIM_MODE according to input argument #1, if supplied. Otherwise, just leave it false
+if ! [ -z "$1" ]
+  then
+    SIM_MODE=$1
+fi
+
+
+if [ "$SIM_MODE" = true ]
+then
+  ROS_MASTER_CMD="sim_mode"
+  echo 'Launching in sim_mode'
 else
-ROS_MASTER_CMD="hsrb_mode"
+  ROSMASTER_CMD="hsrb_mode"
+  echo 'Launching in hsrb_mode'
 fi
 
 _SRC_ENV="tmux send-keys source Space $ORION_WS C-m "
 
-PREFIX="$ROS_MASTER_CMD; source $ORION_WS; source activate tf2;"
+PREFIX="$ROS_MASTER_CMD; source $ORION_WS;"
 
 tmux -2 new-session -d -s $SESSION
 tmux rename-window -t $SESSION:0 'bbox_publisher'
