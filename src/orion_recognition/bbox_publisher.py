@@ -18,8 +18,9 @@ import torchvision.transforms as transforms
 import torchvision.ops as ops
 import rospkg
 import torch
+import os
 
-min_acceptable_score = 0.25
+min_acceptable_score = 0.50
 # When performing non-maximum suppression, the intersection-over-union threshold defines
 # the proportion of intersection a bounding box must cover before it is determined to be 
 # part of the same object. 
@@ -35,7 +36,7 @@ class BboxPublisher(object):
         label_file = os.path.join(rospack.get_path('orion_recognition'),
                             'src/orion_recognition/coco_labels2017.txt')
         with open(label_file, 'r') as in_file:
-            self.label_dict = f.readlines()
+            self.label_dict = in_file.readlines()
 
         # Subscribers
         self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=100)
@@ -129,8 +130,9 @@ class BboxPublisher(object):
             colour = ColorNames.findNearestOrionColorName(RGB)
 
             # create label
-            score_lbl = Label(str(self.label_dict[int(label)-1]).encode('ascii', 'ignore'),
-                              np.float64(score))
+	    label_str =  '_'.join(str(self.label_dict[int(label)-1]).encode('ascii', 'ignore').split(' '))
+            label_str = label_str.rstrip()
+            score_lbl = Label(label_str, np.float64(score))
 
             # create detection instance
             detection = Detection(score_lbl, center_x, center_y, width, height,
@@ -155,19 +157,22 @@ class BboxPublisher(object):
 
         # Perform non-maximum suppression on boxes according to their intersection over union (IoU)
         with torch.no_grad():
-            boxes_nms = torch.stack(boxes_nms)
-            scores_nms = torch.stack(scores_nms)
-            labels_nms = torch.stack(labels_nms)
+            if len(boxes_nms) != 0:
+                boxes_nms = torch.stack(boxes_nms)
+                scores_nms = torch.stack(scores_nms)
+                labels_nms = torch.stack(labels_nms)
             #keep = ops.batched_nms(boxes_nms, scores_nms, labels_nms,iou_threshold)
             #keep = ops.nms(boxes_nms, scores_nms,iou_threshold)
             # NOTE: Start of block to be tested ------
             # A hacky equivalent of batched_nms, since we can't run that in Python 2!
             keep = {}
             for label in boxes_per_label:
-                current_boxes_nms = torch.stack(boxes_per_label[label])
-                current_scores_nms = torch.stack(scores_per_label[label])
-                nms_res = ops.nms(current_boxes_nms, scores_nms, iou_threshold)
-                keep[label] = nms_res
+                if len(boxes_per_label[label]) != 0:
+                    current_boxes_nms = torch.stack(boxes_per_label[label])
+                    current_scores_nms = torch.stack(scores_per_label[label])
+                    nms_res = ops.nms(current_boxes_nms, 
+                                      scores_nms, iou_threshold)
+                    keep[label] = nms_res
             # NOTE: End of block to be tested ------
 
         """ compatible with old version of keep
