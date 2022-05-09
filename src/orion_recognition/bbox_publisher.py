@@ -136,7 +136,7 @@ class BboxPublisher(object):
 
             # create detection instance
             detection = Detection(score_lbl, center_x, center_y, width, height,
-                                  size, colour, obj[0], obj[1], obj[2])
+                                  size, colour, obj[0], obj[1], obj[2], score)
 
             detections.append(detection)
             if score > min_acceptable_score:
