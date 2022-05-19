@@ -8,7 +8,7 @@ import torchvision.models as models
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import cv2
-
+import gc
 from PIL import Image
 
 
@@ -16,11 +16,17 @@ from PIL import Image
 class ObjectDetector(torch.nn.Module):
     def __init__(self):
         super(ObjectDetector, self).__init__()
-
+        print(torch.cuda.memory_allocated(0))
         self.model = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
-        self.device = torch.device( "cuda:0" if torch.cuda.is_available() else  "cpu")
+        self.device= torch.device( "cuda:0" if torch.cuda.is_available() else  "cpu")
         self.model.to(self.device).float()
+#        del self.model
+        gc.collect()
+        torch.cuda.empty_cache()
+        print(torch.cuda.memory_allocated(0))
+        print(torch.cuda.device_count())
 
+        
     def forward(self, img):
         img = np.concatenate(img)
         x = torch.as_tensor(img).to(self.device).float().unsqueeze(0)
@@ -32,18 +38,26 @@ class ObjectDetector(torch.nn.Module):
     def train_on_data(self):
         images = []
         targets = []
-        labels_file = open('labels.txt', 'r')
+        labels_file = open('labels_tmp.txt', 'r')
         labels = labels_file.read().split("\n")
-        for i in range(len(labels)):
+        total = 0
+        for i in range(len(labels)-1):
             image_dir = "./"+labels[i]+"/"
+            print(image_dir)
+            counter =0
             for image_location in os.listdir(image_dir):
+                if counter > 7:
+                    break
+                counter += 1
+                print(torch.cuda.memory_allocated(0))
                 image = Image.open(image_dir+image_location)
-                image_tensor = transforms.ToTensor()(image)
+                image_tensor = transforms.ToTensor()(image).to(self.device).float()
                 images.append(image_tensor)
                 size = image_tensor.size()
                 d  = {}
-                d['boxes'] = [[0, 0, size[1], size[2]]]
-                d['labels'] = [i+91]
+                d['boxes'] = torch.as_tensor([[0, 0, size[1], size[2]]]).to(self.device).float()
+                d['labels'] = torch.as_tensor([i]).type(torch.int64).to(self.device)
+                
                 targets.append(d)
         self.model(images, targets)
         torch.save(self.model.state_dict(), "model_weights.pth")
@@ -74,7 +88,7 @@ class ObjectDetector(torch.nn.Module):
 
         if vc.isOpened(): # try to get the first frame
             rval, frame = vc.read()
-            image_tensor = transforms.ToTensor()(frame)
+            image_tensor = transforms.ToTensor()(frame).to(self.device).float()
         else:
             rval = False
 
@@ -85,7 +99,7 @@ class ObjectDetector(torch.nn.Module):
                 cv2.putText(frame, str(label), (int(detection[0]), int(detection[1])), cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
             cv2.imshow("preview", frame)
             rval, frame = vc.read()
-            image_tensor = transforms.ToTensor()(frame)
+            image_tensor = transforms.ToTensor()(frame).to(self.device).float()
             key = cv2.waitKey(20)
             if key == 27: # exit on ESC
                 break
@@ -100,6 +114,6 @@ if __name__ == '__main__':
     #result = detector.detect_video()
     detector.train_on_data()
     #result = detector.detect_random()
-    #print(result[0]['boxes'])
+    #print(type(result[0]['boxes']))
     #print(result[0]['labels'])
     #print(result[0]['scores'])
