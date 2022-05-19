@@ -21,7 +21,7 @@ then
   ROS_MASTER_CMD="sim_mode"
   echo 'Launching in sim_mode'
 else
-  ROSMASTER_CMD="hsrb_mode"
+  ROS_MASTER_CMD="hsrb_mode"
   echo 'Launching in hsrb_mode'
 fi
 
