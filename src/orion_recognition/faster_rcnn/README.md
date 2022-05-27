@@ -3,6 +3,12 @@
 We use Faster R-CNN implemented in PyTorch for object detection and bounding box prediction. 
 We finetune Faster R-CNN on the RoboCup@Home objects dataset to come up with a better object prediction.
 
+### Requirements
+```bash
+pip3 install torch torchvision torchaudio einops matplotlib pycocotools
+```
+
+
 ### Helpful resources
 
 - [Official PyTorch tutorial on finetuning Faster R-CNN](https://pytorch.org/tutorials/intermediate/torchvision_tutorial.html)
