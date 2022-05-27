@@ -1,6 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import orion_recognition.object_detector
 import message_filters
 from orion_actions.msg import Detection, DetectionArray, Label
 import sys
@@ -14,6 +13,7 @@ from geometry_msgs.msg import Point
 from sensor_msgs.msg import CameraInfo, Image
 from cv_bridge import CvBridge, CvBridgeError
 from orion_recognition.colornames import ColorNames
+from orion_recognition.object_detector import ObjectDetector
 import torchvision.transforms as transforms
 import torchvision.ops as ops
 import rospkg
@@ -26,9 +26,10 @@ min_acceptable_score = 0.50
 # part of the same object. 
 iou_threshold = 0.80
 
-class BboxPublisher(object):
+
+class BboxPublisher:
     def __init__(self, image_topic, depth_topic):
-        self.detector = orion_recognition.object_detector.ObjectDetector()
+        self.detector = ObjectDetector()
         self.detector.eval()
 
         # Read in the label dictionary from any location on the system
@@ -71,7 +72,7 @@ class BboxPublisher(object):
 
         #apply model to image
         with torch.no_grad():
-            detections = self.detector([image_tensor])[0]
+            detections = self.detector.predict([image_tensor])[0]
 
         boxes = detections['boxes']
         labels = detections['labels']
@@ -130,7 +131,7 @@ class BboxPublisher(object):
             colour = ColorNames.findNearestOrionColorName(RGB)
 
             # create label
-	    label_str =  '_'.join(str(self.label_dict[int(label)-1]).encode('ascii', 'ignore').split(' '))
+            label_str = '_'.join(str(self.label_dict[int(label)-1]).encode('ascii', 'ignore').split(' '))
             label_str = label_str.rstrip()
             score_lbl = Label(label_str, np.float64(score))
 
@@ -140,7 +141,7 @@ class BboxPublisher(object):
 
             detections.append(detection)
             if score > min_acceptable_score:
-            	with torch.no_grad():
+                with torch.no_grad():
                     boxes_nms.append(torch.as_tensor(box))
                     scores_nms.append(torch.as_tensor(float(score)))
                     labels_nms.append(torch.as_tensor(float(label)))
