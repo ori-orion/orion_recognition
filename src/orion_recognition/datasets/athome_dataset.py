@@ -20,10 +20,10 @@ LABELS_SUBSET_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "a
 
 class AtHomeImageDataset(Dataset):
 
-    def __init__(self, dataset_dir = ATHOME_DATASET_DIR, is_train=True, transforms=None, label_path=LABELS_SUBSET_PATH, bbox_brightness_thresh=0.95):
+    def __init__(self, dataset_dir = ATHOME_DATASET_DIR, is_train=True, transforms=None, label_path=LABELS_SUBSET_PATH, bbox_brightness_margin=0.05):
         self.dataset_dir = dataset_dir
         self.transforms = transforms or (Compose([RandomHorizontalFlip(0.5), ToTensor()]) if is_train else ToTensor())
-        self.bbox_brightness_thresh = bbox_brightness_thresh
+        self.bbox_brightness_margin = bbox_brightness_margin
 
         with open(os.path.join(dataset_dir, "labels.txt"), "r") as f:
             base_labels = f.read().split("\n")
@@ -45,7 +45,7 @@ class AtHomeImageDataset(Dataset):
         image = Image.open(image_path)
 
         image = self.transforms(image)
-        bbox = get_bbox(image, self.bbox_brightness_thresh)
+        bbox = get_bbox(image, self.bbox_brightness_margin)
 
         # convert boxes into a torch.Tensor
         boxes = torch.tensor([bbox], dtype=torch.float)
