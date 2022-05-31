@@ -1,6 +1,8 @@
+import datetime
 import math
 import sys
 import time
+import os
 
 import torch
 import torchvision.models.detection.mask_rcnn
@@ -9,7 +11,7 @@ from coco_eval import CocoEvaluator
 from coco_utils import get_coco_api_from_dataset
 
 
-def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, scaler=None):
+def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, model_path, scaler=None):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
@@ -24,7 +26,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             optimizer, start_factor=warmup_factor, total_iters=warmup_iters
         )
 
-    for images, targets in metric_logger.log_every(data_loader, print_freq, header):
+    for i, (images, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
         with torch.cuda.amp.autocast(enabled=scaler is not None):
@@ -56,6 +58,10 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
 
         metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
+
+        if i % print_freq == 0:
+            model.save(os.path.join(model_path,
+                                    f"{datetime.datetime.now().strftime('%m%d_%H%M%S')}_faster_rcnn_{epoch}_{i}.pth"))
 
     return metric_logger
 

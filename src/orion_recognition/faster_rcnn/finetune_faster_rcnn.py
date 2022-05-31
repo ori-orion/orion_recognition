@@ -60,10 +60,8 @@ lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1
 
 for epoch in range(args.epochs):
     # training for one epoch
-    train_one_epoch(model, optimizer, train_loader, device, epoch, print_freq=100)
+    train_one_epoch(model, optimizer, train_loader, device, epoch, print_freq=100, model_path=args.model_path)
 
-    model.save(
-        os.path.join(args.model_path, f"{datetime.datetime.now().strftime('%m%d_%H%M%S')}_faster_rcnn_{epoch}.pth"))
     # update the learning rate
     lr_scheduler.step()
     # evaluate on the test dataset
