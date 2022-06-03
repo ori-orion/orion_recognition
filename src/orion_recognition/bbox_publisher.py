@@ -31,12 +31,7 @@ class BboxPublisher(object):
         self.detector = orion_recognition.object_detector.ObjectDetector()
         self.detector.eval()
 
-        # Read in the label dictionary from any location on the system
         rospack = rospkg.RosPack()
-        label_file = os.path.join(rospack.get_path('orion_recognition'),
-                            'src/orion_recognition/coco_labels2017.txt')
-        with open(label_file, 'r') as in_file:
-            self.label_dict = in_file.readlines()
 
         # Subscribers
         self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=100)
@@ -130,7 +125,7 @@ class BboxPublisher(object):
             colour = ColorNames.findNearestOrionColorName(RGB)
 
             # create label
-	    label_str =  '_'.join(str(self.label_dict[int(label)-1]).encode('ascii', 'ignore').split(' '))
+	    label_str =  '_'.join(str(label.encode('ascii', 'ignore').split(' ')))
             label_str = label_str.rstrip()
             score_lbl = Label(label_str, np.float64(score))
 
@@ -194,7 +189,7 @@ class BboxPublisher(object):
                 top_left = (int(boxes_per_label[label][j][0]), int(boxes_per_label[label][j][1]))
             bottom_right = (int(boxes_per_label[label][j][2]), int(boxes_per_label[label][j][3]))
             cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 3)
-            cv2.putText(image, str(label)+': '+str(str(self.label_dict[int(label)-1]))+str(scores_per_label[label][j]), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
+            cv2.putText(image, str(label)+': '+str(label+str(scores_per_label[label][j]), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
         # NOTE: End of block to be tested ------
         
         # Publish nodes
