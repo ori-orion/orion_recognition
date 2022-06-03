@@ -9,7 +9,7 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import cv2
 import gc
-from object_classifer import ObjectClassifer
+from orion_recognition.object_classifer import ObjectClassifer
 from PIL import Image
 
 
@@ -42,7 +42,7 @@ class ObjectDetector(torch.nn.Module):
             new_labels = []
             new_scores = []
             for box, label, score in zip(y[0]['boxes'], y[0]['labels'], y[0]['scores']):
-                if label == 1:
+                if label == 1 or (box[2]-box[0]<50) or (box[3]-box[1]<50):
                     new_labels.append(self.convert_label_index_to_string(label))
                     new_scores.append(score)
                 else:

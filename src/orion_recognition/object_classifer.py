@@ -10,7 +10,7 @@ import torchvision.transforms as transforms
 import cv2
 import gc
 from PIL import Image
-from utils import load_finetuned_resnet
+from orion_recognition.utils import load_finetuned_resnet
 
 class ObjectClassifer(torch.nn.Module):
     def __init__(self):
@@ -20,7 +20,9 @@ class ObjectClassifer(torch.nn.Module):
         self.model.to(self.device).float()
         
     def forward(self, img):
-        img_resized = transforms.functional.resize(img, size=[224])
+        # img_resized = transforms.functional.resize(img, size=[224])
+        img_resized = img
+        print("Image shape: {}".format(img.shape))
         output = self.model(img_resized)
         probabilities = torch.nn.functional.softmax(output[0], dim=0)
         return torch.argmax(probabilities), torch.max(probabilities)
