@@ -23,9 +23,10 @@ parser.add_argument("--n_workers", type=int, default=4)
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--save_path", default="./data/model")
 parser.add_argument("--checkpoint", default=None)
+parser.add_argument("--input_size", type=int, default=24)
 
 args = parser.parse_args()
-train_tf, val_tf = get_transforms()
+train_tf, val_tf = get_transforms(args.input_size)
 
 train_dataset = AtHomeImageDataset(is_train=True, transforms=train_tf)
 val_dataset = AtHomeImageDataset(is_train=False, transforms=val_tf)
