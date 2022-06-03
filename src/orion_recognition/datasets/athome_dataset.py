@@ -5,14 +5,12 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageChops
 from einops import rearrange
 from torch.utils.data import Dataset
-from torchvision.transforms import RandomHorizontalFlip, Compose, ToTensor
+from torchvision.transforms import ToTensor
 import argparse
 
 
 import sys
 sys.path.append(".")
-
-from orion_recognition.datasets.utils import get_bbox
 
 ATHOME_DATASET_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "data", "athome")
 LABELS_SUBSET_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "athome_labels_subset.txt")
@@ -22,7 +20,7 @@ class AtHomeImageDataset(Dataset):
 
     def __init__(self, dataset_dir = ATHOME_DATASET_DIR, is_train=True, transforms=None, label_path=LABELS_SUBSET_PATH, bbox_brightness_margin=0.05):
         self.dataset_dir = dataset_dir
-        self.transforms = transforms or (Compose([RandomHorizontalFlip(0.5), ToTensor()]) if is_train else ToTensor())
+        self.transforms = transforms or ToTensor()
         self.bbox_brightness_margin = bbox_brightness_margin
 
         with open(os.path.join(dataset_dir, "labels.txt"), "r") as f:
@@ -40,28 +38,16 @@ class AtHomeImageDataset(Dataset):
                 label_index = self.labels.index(base_labels[int(base_label_id)])
                 self.image_label_pairs.append((image_path, label_index))
 
+    @property
+    def num_classes(self):
+        return len(self.labels)
+
     def __getitem__(self, idx):
         image_path, label = self.image_label_pairs[idx]
         image = Image.open(image_path)
-
         image = self.transforms(image)
-        bbox = get_bbox(image, self.bbox_brightness_margin)
 
-        # convert boxes into a torch.Tensor
-        boxes = torch.tensor([bbox], dtype=torch.float)
-
-        # getting the areas of the boxes
-        area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
-
-        target = {
-            "boxes": boxes,
-            "labels": torch.tensor([label], dtype=torch.int64),
-            "area": area,
-            "iscrowd": torch.tensor([0], dtype=torch.int64),
-            "image_id": torch.tensor([idx])
-        }
-
-        return image, target
+        return image, torch.tensor([label], dtype=torch.long)
 
     def __len__(self):
         return len(self.image_label_pairs)
