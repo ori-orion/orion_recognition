@@ -9,10 +9,11 @@ import pytorch_lightning as pl
 
 import sys
 
+sys.path.append(".")
+sys.path.append("./src")
+
 from orion_recognition.datasets.athome_dataset import AtHomeImageDataset
 from orion_recognition.object_detection.utils import ResNetModule, get_transforms
-
-sys.path.append(".")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--name", type=str, default="")
