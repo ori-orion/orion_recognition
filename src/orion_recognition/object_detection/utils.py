@@ -16,7 +16,9 @@ def load_resnet(n_classes):
     model_ft = models.resnet18(pretrained=True)
     num_ftrs = model_ft.fc.in_features
     model_ft.fc = nn.Linear(num_ftrs, n_classes)
-    return model_ft
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+    return nn.Sequential(normalize, model_ft)
 
 
 def load_finetuned_resnet(finetuned_path, n_classes, eval=True):

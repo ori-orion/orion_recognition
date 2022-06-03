@@ -22,4 +22,5 @@ model = load_finetuned_resnet(args.checkpoint, args.n_classes, eval=True)
 
 print(model)
 
+# make sure that the image input is a Torch.Tensor and
 # output = model(image.unsqueeze(0))
