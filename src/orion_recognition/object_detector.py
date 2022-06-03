@@ -58,9 +58,12 @@ class ObjectDetector(torch.nn.Module):
                     new_scores.append(score)
                     new_boxes.append(box)
                 else:
-                    label, score = self.classfier(x[:, :, int(box[1]):int(box[3]), int(box[0]):int(box[2])])
-                    new_labels.append(self.convert_label_index_to_string(label, coco=False))
+                    new_labels.append(self.convert_label_index_to_string(label))
                     new_scores.append(score)
+                    new_boxes.append(box)
+                    new_label, new_score = self.classfier(x[:, :, int(box[1]):int(box[3]), int(box[0]):int(box[2])])
+                    new_labels.append(self.convert_label_index_to_string(new_label, coco=False))
+                    new_scores.append(new_score)
                     new_boxes.append(box)
             y_new[0]['boxes']=new_boxes
             y_new[0]['labels']=new_labels
