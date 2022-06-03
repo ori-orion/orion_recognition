@@ -33,7 +33,7 @@ val_loader = DataLoader(val_dataset, shuffle=False, batch_size=args.batch_size, 
 
 version_name = f"{datetime.datetime.now().strftime('%m%d_%H%M%S')}{'_' + args.name if args.name else ''}"
 
-module = ResNetModule(args.n_clusters, save_path=os.path.join(args.save_path, version_name))
+module = ResNetModule(train_dataset.n_classes, save_path=os.path.join(args.save_path, version_name))
 
 tb_logger = TensorBoardLogger(save_dir=".", version=version_name)
 trainer = pl.Trainer(accelerator="gpu", logger=tb_logger, gpus=1)

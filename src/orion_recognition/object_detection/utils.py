@@ -21,7 +21,7 @@ def load_resnet(num_classes):
 
 def get_transforms(input_size=224, rotation=15):
     train_tf_list = [
-        Resize(input_size * 1.2),
+        Resize(int(input_size * 1.2)),
         RandomChoice([
             RandomRotation(rotation),
             RandomAffine(rotation,
@@ -30,10 +30,10 @@ def get_transforms(input_size=224, rotation=15):
                          shear=10),
             Identity()
         ]),
-        RandomChoice({
+        RandomChoice([
             RandomCrop(input_size),
             CenterCrop(input_size)
-        }),
+        ]),
         ColorJitter(brightness=0.4, contrast=0.4,
                     saturation=0.4, hue=0.125),
         ToTensor()

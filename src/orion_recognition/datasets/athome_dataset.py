@@ -39,7 +39,7 @@ class AtHomeImageDataset(Dataset):
                 self.image_label_pairs.append((image_path, label_index))
 
     @property
-    def num_classes(self):
+    def n_classes(self):
         return len(self.labels)
 
     def __getitem__(self, idx):
