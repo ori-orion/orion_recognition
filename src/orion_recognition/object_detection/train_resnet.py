@@ -13,7 +13,7 @@ sys.path.append(".")
 sys.path.append("./src")
 
 from orion_recognition.datasets.athome_dataset import AtHomeImageDataset
-from orion_recognition.object_detection.utils import ResNetModule, get_transforms
+from orion_recognition.object_detection.utils import ResNetModule, get_transforms, collate_fn
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--name", type=str, default="")
@@ -28,8 +28,8 @@ train_tf, val_tf = get_transforms()
 train_dataset = AtHomeImageDataset(is_train=True, transforms=train_tf)
 val_dataset = AtHomeImageDataset(is_train=False, transforms=val_tf)
 
-train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batch_size, drop_last=True, num_workers=args.n_workers)
-val_loader = DataLoader(val_dataset, shuffle=False, batch_size=args.batch_size, drop_last=False, num_workers=args.n_workers)
+train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batch_size, drop_last=True, num_workers=args.n_workers, collate_fn=collate_fn)
+val_loader = DataLoader(val_dataset, shuffle=False, batch_size=args.batch_size, drop_last=False, num_workers=args.n_workers, collate_fn=collate_fn)
 
 version_name = f"{datetime.datetime.now().strftime('%m%d_%H%M%S')}{'_' + args.name if args.name else ''}"
 

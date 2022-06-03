@@ -88,3 +88,6 @@ class ResNetModule(pl.LightningModule):
     def configure_optimizers(self):
         return Adam(self.parameters(), lr=1e-4)
 
+
+def collate_fn(batch):
+    return tuple(*zip(batch))
