@@ -8,10 +8,10 @@ from torchvision.transforms import RandomChoice, CenterCrop, RandomCrop, Resize,
 
 def load_resnet(n_classes):
     model_ft = models.resnet18(pretrained=True)
-    for param in model_ft.parameters():
-        param.requires_grad = False
-    for param in model_ft.layer4.parameters():
-        param.requires_grad = True
+    # for param in model_ft.parameters():
+    #     param.requires_grad = False
+    # for param in model_ft.layer4.parameters():
+    #     param.requires_grad = True
     num_ftrs = model_ft.fc.in_features
     model_ft.fc = nn.Linear(num_ftrs, n_classes)
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
