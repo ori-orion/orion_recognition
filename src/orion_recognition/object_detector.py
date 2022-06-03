@@ -2,30 +2,34 @@
 # coding: utf-8
 
 import numpy as np
-import os
+import os, psutil, sys, time
 import torch
 import torchvision.models as models
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import cv2
 import gc
+from object_classifer import ObjectClassifer
 from PIL import Image
 
 
+classifer=True
 
 class ObjectDetector(torch.nn.Module):
     def __init__(self):
         super(ObjectDetector, self).__init__()
         print(torch.cuda.memory_allocated(0))
-        self.model = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
         self.device= torch.device( "cuda:0" if torch.cuda.is_available() else  "cpu")
+        self.model = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
         self.model.to(self.device).float()
-#        del self.model
-        gc.collect()
-        torch.cuda.empty_cache()
-        print(torch.cuda.memory_allocated(0))
-        print(torch.cuda.device_count())
-
+        if classifer:
+            self.classfier = ObjectClassifer()
+            self.classfier.eval()
+        self.coco_labels = []
+        with open('coco_labels2017.txt', 'r') as in_file:
+            self.coco_labels = in_file.readlines()
+        with open('imagenet_classes.txt', 'r') as in_file:
+            self.imagenet_labels = in_file.readlines()
         
     def forward(self, img):
         img = np.concatenate(img)
@@ -33,37 +37,31 @@ class ObjectDetector(torch.nn.Module):
         y = self.model(x)
         
         y = [{k: v.cpu().detach().numpy() for k,v in y[i].items()} for i in range(len(y))]
-        return y 
-
-    def train_on_data(self):
-        images = []
-        targets = []
-        labels_file = open('labels_tmp.txt', 'r')
-        labels = labels_file.read().split("\n")
-        total = 0
-        for i in range(len(labels)-1):
-            image_dir = "./"+labels[i]+"/"
-            print(image_dir)
-            counter =0
-            for image_location in os.listdir(image_dir):
-                if counter > 7:
-                    break
-                counter += 1
-                print(torch.cuda.memory_allocated(0))
-                image = Image.open(image_dir+image_location)
-                image_tensor = transforms.ToTensor()(image).to(self.device).float()
-                images.append(image_tensor)
-                size = image_tensor.size()
-                d  = {}
-                d['boxes'] = torch.as_tensor([[0, 0, size[1], size[2]]]).to(self.device).float()
-                d['labels'] = torch.as_tensor([i]).type(torch.int64).to(self.device)
-                
-                targets.append(d)
-        self.model(images, targets)
-        torch.save(self.model.state_dict(), "model_weights.pth")
-        # model.load_state_dict(torch.load("model_weights.pth"))
-
-
+        if classifer:
+            y_new = [{}]
+            new_labels = []
+            new_scores = []
+            for box, label, score in zip(y[0]['boxes'], y[0]['labels'], y[0]['scores']):
+                if label == 1:
+                    new_labels.append(self.convert_label_index_to_string(label))
+                    new_scores.append(score)
+                else:
+                    label, score = self.classfier(x[:, :, int(box[0]):int(box[2]), int(box[1]):int(box[3])])
+                    new_labels.append(self.convert_label_index_to_string(label, coco=False))
+                    new_scores.append(score)
+            y_new[0]['boxes']=y[0]['boxes']
+            y_new[0]['labels']=new_labels
+            y_new[0]['scores']=new_scores
+            return y_new
+        else:
+            return y 
+        
+    def convert_label_index_to_string(self, index, coco=True):
+        if coco:
+            return self.coco_labels[index-1]
+        else:
+            return self.imagenet_labels[index-1]
+        
 
     def detect_random(self):
         self.model.eval()
@@ -93,7 +91,7 @@ class ObjectDetector(torch.nn.Module):
             rval = False
 
         while rval:
-            detections = self.model([image_tensor])[0]
+            detections = self.forward([image_tensor])[0]
             for detection, label in zip(detections['boxes'], detections['labels']):
                 cv2.rectangle(frame, (int(detection[0]), int(detection[1])), (int(detection[2]), int(detection[3])), (255, 0, 0), 3)
                 cv2.putText(frame, str(label), (int(detection[0]), int(detection[1])), cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
@@ -111,8 +109,8 @@ class ObjectDetector(torch.nn.Module):
 if __name__ == '__main__':
     detector = ObjectDetector()
     print(detector.device)
-    #result = detector.detect_video()
-    detector.train_on_data()
+    result = detector.detect_video()
+    #detector.train_on_data()
     #result = detector.detect_random()
     #print(type(result[0]['boxes']))
     #print(result[0]['labels'])
