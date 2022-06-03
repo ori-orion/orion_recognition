@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 
 import numpy as np
@@ -52,7 +52,8 @@ class ObjectDetector(torch.nn.Module):
             new_boxes = []
             for box, label, score in zip(y[0]['boxes'], y[0]['labels'], y[0]['scores']):
                 print("box corners: {}, x-size: {}, y-size: {}, label: {}".format(box, box[2]-box[0], box[3]-box[1], label))
-                if (box[2]-box[0]<50) or (box[3]-box[1]<50):
+                min_dim_size = 25
+                if (box[2]-box[0]<min_dim_size) or (box[3]-box[1]<min_dim_size):
                     # dont take box that is too small
                     continue
                 if label == 1:
