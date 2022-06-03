@@ -47,6 +47,7 @@ class ObjectDetector(torch.nn.Module):
             y_new = [{}]
             new_labels = []
             new_scores = []
+            new_boxes = []
             for box, label, score in zip(y[0]['boxes'], y[0]['labels'], y[0]['scores']):
                 print("box corners: {}, x-size: {}, y-size: {}, label: {}".format(box, box[2]-box[0], box[3]-box[1], label))
                 if (box[2]-box[0]<50) or (box[3]-box[1]<50):
@@ -55,11 +56,13 @@ class ObjectDetector(torch.nn.Module):
                 if label == 1:
                     new_labels.append(self.convert_label_index_to_string(label))
                     new_scores.append(score)
+                    new_boxes.append(box)
                 else:
                     label, score = self.classfier(x[:, :, int(box[1]):int(box[3]), int(box[0]):int(box[2])])
                     new_labels.append(self.convert_label_index_to_string(label, coco=False))
                     new_scores.append(score)
-            y_new[0]['boxes']=y[0]['boxes']
+                    new_boxes.append(box)
+            y_new[0]['boxes']=new_boxes
             y_new[0]['labels']=new_labels
             y_new[0]['scores']=new_scores
             return y_new

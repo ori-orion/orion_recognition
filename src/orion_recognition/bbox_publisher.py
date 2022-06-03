@@ -20,7 +20,7 @@ import rospkg
 import torch
 import os
 
-min_acceptable_score = 0.50
+min_acceptable_score = 0.0
 # When performing non-maximum suppression, the intersection-over-union threshold defines
 # the proportion of intersection a bounding box must cover before it is determined to be 
 # part of the same object. 
@@ -166,7 +166,7 @@ class BboxPublisher(object):
                     current_boxes_nms = torch.stack(boxes_per_label[label])
                     current_scores_nms = torch.stack(scores_per_label[label])
                     nms_res = ops.nms(current_boxes_nms, 
-                                      scores_nms, iou_threshold)
+                                      current_scores_nms, iou_threshold)
                     keep[label] = nms_res
             # NOTE: End of block to be tested ------
 
@@ -189,7 +189,7 @@ class BboxPublisher(object):
                 top_left = (int(boxes_per_label[label][j][0]), int(boxes_per_label[label][j][1]))
             bottom_right = (int(boxes_per_label[label][j][2]), int(boxes_per_label[label][j][3]))
             cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 3)
-            cv2.putText(image, str(label)+': '+str(label+str(scores_per_label[label][j]), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1))
+            cv2.putText(image, (str(label)+': '+str(label)+str(scores_per_label[label][j])), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
         # NOTE: End of block to be tested ------
         
         # Publish nodes
