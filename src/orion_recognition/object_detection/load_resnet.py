@@ -1,33 +1,19 @@
 import argparse
 
-import numpy as np
-import matplotlib.pyplot as plt
-from PIL import Image
 import sys
-
-import torch
-
-from orion_recognition.object_detection.utils import get_transforms
+import os
 
 sys.path.append(".")
+sys.path.append("./src")
+
+from orion_recognition.object_detection.utils import load_finetuned_resnet
+
+dir_path = os.path.join(os.path.abspath(os.path.abspath(__file__)))
 
 parser = argparse.ArgumentParser()
-parser.add_argument("checkpoint", help="path to checkpoint")
+parser.add_argument("checkpoint", help="path to checkpoint", default=os.path.join(dir_path, "finetuned", "resnet_epoch_3.pth"))
+parser.add_argument("--n_classes", help="number of classes", type=int, default=180)
 
 args = parser.parse_args()
 
-module = PLCluster.load_from_checkpoint(args.checkpoint)
-
-with torch.no_grad():
-    pred_full = module(pov_full)
-
-pred_full = pred_full.argmax(dim=1)
-n_clusters = pred_full.max() + 1
-
-image = vis_clusters(pov_full, pred_full, n_clusters, interval=1)
-
-plt.imshow(image)
-plt.show()
-
-im = Image.fromarray((image.cpu().numpy() * 255).astype(np.uint8))
-im.save("your_file.png")
+model = load_finetuned_resnet(args.checkpoint, args.n_classes)

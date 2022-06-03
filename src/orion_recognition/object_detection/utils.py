@@ -12,11 +12,17 @@ from torchvision.transforms import RandomChoice, CenterCrop, RandomCrop, Resize,
     RandomAffine, ColorJitter
 
 
-def load_resnet(num_classes):
+def load_resnet(n_classes):
     model_ft = models.resnet18(pretrained=True)
     num_ftrs = model_ft.fc.in_features
-    model_ft.fc = nn.Linear(num_ftrs, num_classes)
+    model_ft.fc = nn.Linear(num_ftrs, n_classes)
     return model_ft
+
+
+def load_finetuned_resnet(finetuned_path, n_classes):
+    model = load_resnet(n_classes)
+    model.load_state_dict(torch.load(finetuned_path))
+    return model
 
 
 def get_transforms(input_size=224, rotation=15):
@@ -83,7 +89,7 @@ class ResNetModule(pl.LightningModule):
         print(acc)
 
     def on_train_epoch_end(self):
-        torch.save(self.model, os.path.join(self.save_path, f"resnet_epoch_{self.current_epoch}.pth"))
+        torch.save(self.model.state_dict(), os.path.join(self.save_path, f"resnet_epoch_{self.current_epoch}.pth"))
 
     def configure_optimizers(self):
         return Adam(self.parameters(), lr=1e-4)
