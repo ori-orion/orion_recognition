@@ -23,7 +23,7 @@ parser.add_argument("--n_workers", type=int, default=4)
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--save_path", default="./data/model")
 parser.add_argument("--checkpoint", default=None)
-parser.add_argument("--input_size", type=int, default=24)
+parser.add_argument("--input_size", '-sz', type=int, default=224)
 
 args = parser.parse_args()
 train_tf, val_tf = get_transforms(args.input_size)
