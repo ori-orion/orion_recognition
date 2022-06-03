@@ -40,7 +40,7 @@ def get_transforms(input_size=224, rotation=15):
     ]
 
     val_tf_list = [
-        Resize(input_size),
+        Resize((input_size, input_size)),
         ToTensor()
     ]
 
