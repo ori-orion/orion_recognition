@@ -4,9 +4,7 @@ import orion_recognition.object_detector
 import message_filters
 from orion_actions.msg import Detection, DetectionArray, Label
 import sys
-sys.path.remove('/opt/ros/noetic/lib/python3/dist-packages')
 import cv2
-sys.path.append('/opt/ros/noetic/lib/python3/dist-packages')
 import numpy as np
 import math;
 import rospy
@@ -25,26 +23,23 @@ min_acceptable_score = 0.50
 # When performing non-maximum suppression, the intersection-over-union threshold defines
 # the proportion of intersection a bounding box must cover before it is determined to be 
 # part of the same object. 
-iou_threshold = 0.80
+iou_threshold = 0.40
 
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
         self.detector = orion_recognition.object_detector.ObjectDetector()
         self.detector.eval()
 
-        # Read in the label dictionary from any location on the system
+  
         rospack = rospkg.RosPack()
-        label_file = os.path.join(rospack.get_path('orion_recognition'),
-                            'src/orion_recognition/coco_labels2017.txt')
-        with open(label_file, 'r') as in_file:
-            self.label_dict = in_file.readlines()
+
 
         # Subscribers
-        self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=1)     # TODO - see if changing from 100 will help for sim image backlog
+        self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=10)
         self.depth_sub = message_filters.Subscriber(depth_topic, Image)
 
         #synchronise subscribers
-        self.subscribers = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 1, 1.0)
+        self.subscribers = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 3, 0.5)
 
         #Publishers
         self.image_pub = rospy.Publisher('/vision/bbox_image', Image, queue_size=10)
@@ -106,8 +101,6 @@ class BboxPublisher(object):
         
 
     def callback(self, ros_image, depth_data):
-        print("\n\n----------------------------------------------------------------------")
-
         # get images from cv bridge
         image = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
         depth = np.array(self.bridge.imgmsg_to_cv2(depth_data, 'passthrough'),
@@ -146,18 +139,12 @@ class BboxPublisher(object):
             height = box[3]-box[1]
 
             # Get depth
-            trim_depth = depth[int(box[0]):int(box[2]), int(box[1]):int(box[2])]
+            trim_depth = depth[int(box[1]):int(box[3]), int(box[0]):int(box[2])]
             valid = trim_depth[np.nonzero(trim_depth)]
-
-            # Discard any bounding boxes with zero trim_depth size
-            if trim_depth.size == 0:
-                continue
 
             # Use depth to get position, and if depth is not valid, discard bounding box
             if valid.size != 0:
                 z = np.min(valid) * 1e-3
-                # z = self.getMeanDepth_gaussian(trim_depth) * 1e-3;
-                
                 top_left_3d = np.array([int(box[0]), int(box[1]), 0])
                 top_left_camera = np.dot(self._invK, top_left_3d)*z
                 bottom_right_3d = np.array([int(box[2]), int(box[3]), 0])
@@ -169,13 +156,7 @@ class BboxPublisher(object):
                 size = Point(x_size, y_size, z_size)
             else:
                 size = Point(0.0, 0.0, 0.0)
-                print('\n')
-                print('\n')
-                print("Trim depth size: {}".format(trim_depth.size))
-                print('\tno valid depth for object size', end="")
-                print('\n')
-                print('\n')
-
+                print('no valid depth for object size')
                 continue
 
             # Find object position
@@ -189,23 +170,20 @@ class BboxPublisher(object):
             colour = ColorNames.findNearestOrionColorName(RGB)
 
             # create label
-            # label_str = '_'.join(str(self.label_dict[int(label)-1]).encode('ascii', 'ignore').split(' '));
-            label_str = '_'.join(str(self.label_dict[int(label)-1]).replace('\n', '').split(' '));
-            label_str = label_str.rstrip()
+            label_str = label.replace(" ", "_")
+            label_str = label_str.rstrip()  # Remove any white spaces at the end of the string
             score_lbl = Label(label_str, np.float64(score))
-
-            print("\n", label_str, end="");
 
             # create detection instance
             detection = Detection(score_lbl, center_x, center_y, width, height,
-                                  size, colour, obj[0], obj[1], obj[2])
+                                  size, colour, obj[0], obj[1], obj[2], score)
 
             detections.append(detection)
             if score > min_acceptable_score:
             	with torch.no_grad():
                     boxes_nms.append(torch.as_tensor(box))
                     scores_nms.append(torch.as_tensor(float(score)))
-                    labels_nms.append(torch.as_tensor(float(label)))
+                    labels_nms.append(torch.as_tensor(float(self.detector.label_map[label])))
                     # NOTE: Start of block to be tested ------
                     # Seperate by label for batched nms later on
                     if label not in boxes_per_label:
@@ -234,8 +212,6 @@ class BboxPublisher(object):
                     current_scores_nms = torch.stack(scores_per_label[label])
                     nms_res = ops.nms(current_boxes_nms, 
                                       current_scores_nms, iou_threshold)
-                    # nms_res = ops.nms(current_boxes_nms, 
-                    #                   scores_nms, iou_threshold)
                     keep[label] = nms_res
             # NOTE: End of block to be tested ------
 
@@ -258,7 +234,7 @@ class BboxPublisher(object):
                 top_left = (int(boxes_per_label[label][j][0]), int(boxes_per_label[label][j][1]))
             bottom_right = (int(boxes_per_label[label][j][2]), int(boxes_per_label[label][j][3]))
             cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 3)
-            cv2.putText(image, str(label)+': '+str(str(self.label_dict[int(label)-1]))+str(scores_per_label[label][j]), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
+            cv2.putText(image, (str(label)+': '+str(scores_per_label[label][j])), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
         # NOTE: End of block to be tested ------
         
         # Publish nodes
