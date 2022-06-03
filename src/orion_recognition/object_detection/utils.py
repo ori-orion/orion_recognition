@@ -60,7 +60,7 @@ class ResNetModule(pl.LightningModule):
         images, labels = batch
         outputs = self.model(images)
         loss = F.cross_entropy(outputs, labels)
-        acc = (outputs.argmax(dim=1) == labels).mean()
+        acc = (outputs.argmax(dim=1) == labels).float().mean()
         return loss, acc
 
     def training_step(self, batch, batch_idx):
@@ -91,3 +91,4 @@ class ResNetModule(pl.LightningModule):
 
 def collate_fn(batch):
     return tuple(map(torch.stack, zip(*batch)))
+

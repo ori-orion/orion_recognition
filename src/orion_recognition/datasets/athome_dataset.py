@@ -45,7 +45,7 @@ class AtHomeImageDataset(Dataset):
     def __getitem__(self, idx):
         image_path, label = self.image_label_pairs[idx]
         image = Image.open(image_path)
-        image = self.transforms(image)
+        image = self.transforms(image.convert('RGB'))
 
         return image, torch.tensor(label, dtype=torch.long)
 
