@@ -47,7 +47,7 @@ class AtHomeImageDataset(Dataset):
         image = Image.open(image_path)
         image = self.transforms(image)
 
-        return image, torch.tensor([label], dtype=torch.long)
+        return image, torch.tensor(label, dtype=torch.long)
 
     def __len__(self):
         return len(self.image_label_pairs)

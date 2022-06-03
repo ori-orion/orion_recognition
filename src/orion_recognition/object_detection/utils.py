@@ -90,4 +90,4 @@ class ResNetModule(pl.LightningModule):
 
 
 def collate_fn(batch):
-    return tuple(zip(*batch))
+    return tuple(map(torch.stack, zip(*batch)))
