@@ -138,7 +138,7 @@ class BboxPublisher(object):
             	with torch.no_grad():
                     boxes_nms.append(torch.as_tensor(box))
                     scores_nms.append(torch.as_tensor(float(score)))
-                    labels_nms.append(torch.as_tensor(float(label)))
+                    labels_nms.append(torch.as_tensor(float(self.detector.label_map[label])))
                     # NOTE: Start of block to be tested ------
                     # Seperate by label for batched nms later on
                     if label not in boxes_per_label:

@@ -30,6 +30,11 @@ class ObjectDetector(torch.nn.Module):
             self.coco_labels = in_file.readlines()
         with open('labels.txt', 'r') as in_file:
             self.imagenet_labels = in_file.readlines()
+            
+        self.all_labels = self.coco_labels+self.imagenet_labels
+        self.label_map = {}
+        for i in range(len(self.all_labels)):
+            self.label_map[self.all_labels[i]] = i+1
         
     def forward(self, img):
         img = np.concatenate(img)
