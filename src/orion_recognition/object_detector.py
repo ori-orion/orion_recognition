@@ -86,7 +86,7 @@ class ObjectDetector(torch.nn.Module):
 
         if vc.isOpened(): # try to get the first frame
             rval, frame = vc.read()
-            image_tensor = transforms.ToTensor()(frame).to(self.device).float()
+            image_tensor = transforms.ToTensor()(frame)#.to(self.device).float()
         else:
             rval = False
 
