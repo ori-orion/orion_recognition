@@ -28,7 +28,7 @@ class ObjectDetector(torch.nn.Module):
         self.coco_labels = []
         with open('coco_labels2017.txt', 'r') as in_file:
             self.coco_labels = in_file.readlines()
-        with open('imagenet_classes.txt', 'r') as in_file:
+        with open('labels.txt', 'r') as in_file:
             self.imagenet_labels = in_file.readlines()
         
     def forward(self, img):
