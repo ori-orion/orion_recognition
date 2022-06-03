@@ -13,7 +13,8 @@ sys.path.append(".")
 sys.path.append("./src")
 
 from orion_recognition.datasets.athome_dataset import AtHomeImageDataset
-from orion_recognition.object_detection.utils import ResNetModule, get_transforms, collate_fn
+from orion_recognition.object_detection.utils import get_transforms, collate_fn
+from orion_recognition.object_detection.pl_module import ResNetModule
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--name", type=str, default="")
