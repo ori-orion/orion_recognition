@@ -34,6 +34,7 @@ class ObjectDetector(torch.nn.Module):
     def forward(self, img):
         img = np.concatenate(img)
         x = torch.as_tensor(img).to(self.device).float().unsqueeze(0)
+        print("forward started with img size: {}".format(x.shape))
         y = self.model(x)
         
         y = [{k: v.cpu().detach().numpy() for k,v in y[i].items()} for i in range(len(y))]
@@ -42,11 +43,15 @@ class ObjectDetector(torch.nn.Module):
             new_labels = []
             new_scores = []
             for box, label, score in zip(y[0]['boxes'], y[0]['labels'], y[0]['scores']):
-                if label == 1 or (box[2]-box[0]<50) or (box[3]-box[1]<50):
+                print("box corners: {}, x-size: {}, y-size: {}, label: {}".format(box, box[2]-box[0], box[3]-box[1], label))
+                if (box[2]-box[0]<50) or (box[3]-box[1]<50):
+                    # dont take box that is too small
+                    continue
+                if label == 1:
                     new_labels.append(self.convert_label_index_to_string(label))
                     new_scores.append(score)
                 else:
-                    label, score = self.classfier(x[:, :, int(box[0]):int(box[2]), int(box[1]):int(box[3])])
+                    label, score = self.classfier(x[:, :, int(box[1]):int(box[3]), int(box[0]):int(box[2])])
                     new_labels.append(self.convert_label_index_to_string(label, coco=False))
                     new_scores.append(score)
             y_new[0]['boxes']=y[0]['boxes']
