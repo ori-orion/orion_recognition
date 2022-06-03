@@ -20,11 +20,11 @@ import rospkg
 import torch
 import os
 
-min_acceptable_score = 0.70
+min_acceptable_score = 0.50
 # When performing non-maximum suppression, the intersection-over-union threshold defines
 # the proportion of intersection a bounding box must cover before it is determined to be 
 # part of the same object. 
-iou_threshold = 0.80
+iou_threshold = 0.40
 
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
@@ -60,8 +60,6 @@ class BboxPublisher(object):
         image = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
         depth = np.array(self.bridge.imgmsg_to_cv2(depth_data, 'passthrough'),
                          dtype=np.float32)
-        print("depth shape")
-        print(depth.shape)
         image_np = np.asarray(image)
         image_tensor = transforms.ToTensor()(image)
 
@@ -97,7 +95,6 @@ class BboxPublisher(object):
             # Get depth
             trim_depth = depth[int(box[1]):int(box[3]), int(box[0]):int(box[2])]
             valid = trim_depth[np.nonzero(trim_depth)]
-            print(valid)
 
             # Use depth to get position, and if depth is not valid, discard bounding box
             if valid.size != 0:

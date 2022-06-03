@@ -14,6 +14,7 @@ from PIL import Image
 
 
 classifer=True
+buffer = 20
 
 class ObjectDetector(torch.nn.Module):
     def __init__(self):
@@ -64,7 +65,7 @@ class ObjectDetector(torch.nn.Module):
                     new_labels.append(self.convert_label_index_to_string(label))
                     new_scores.append(score)
                     new_boxes.append(box)
-                    new_label, new_score = self.classfier(x[:, :, max(0, int(box[1])-10):min(int(box[3])+10, s[1]-1), max(0,int(box[0]-10)):min(int(box[2])+10, s[2]-1)])
+                    new_label, new_score = self.classfier(x[:, :, max(0, int(box[1])-buffer):min(int(box[3])+buffer, s[1]-1), max(0,int(box[0]-buffer)):min(int(box[2])+buffer, s[2]-1)])
                     new_labels.append(self.convert_label_index_to_string(new_label, coco=False))
                     new_scores.append(new_score)
                     new_boxes.append(box)
