@@ -19,6 +19,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--name", type=str, default="")
 parser.add_argument("--batch_size", type=int, default=128)
 parser.add_argument("--n_workers", type=int, default=4)
+parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--save_path", default="./data/model")
 parser.add_argument("--checkpoint", default=None)
 
@@ -33,7 +34,7 @@ val_loader = DataLoader(val_dataset, shuffle=False, batch_size=args.batch_size, 
 
 version_name = f"{datetime.datetime.now().strftime('%m%d_%H%M%S')}{'_' + args.name if args.name else ''}"
 
-module = ResNetModule(train_dataset.n_classes, save_path=os.path.join(args.save_path, version_name))
+module = ResNetModule(train_dataset.n_classes, save_path=os.path.join(args.save_path, version_name), lr=args.lr)
 
 tb_logger = TensorBoardLogger(save_dir=".", version=version_name)
 trainer = pl.Trainer(accelerator="gpu", logger=tb_logger, gpus=1)

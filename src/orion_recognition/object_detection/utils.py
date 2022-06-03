@@ -54,7 +54,7 @@ def get_transforms(input_size=224, rotation=15):
 
 
 class ResNetModule(pl.LightningModule):
-    def __init__(self, num_classes, save_path=None):
+    def __init__(self, num_classes, save_path=None, lr=1e-4):
         super().__init__()
         self.model = load_resnet(num_classes)
         self.save_path = save_path
@@ -92,7 +92,7 @@ class ResNetModule(pl.LightningModule):
         torch.save(self.model.state_dict(), os.path.join(self.save_path, f"resnet_epoch_{self.current_epoch}.pth"))
 
     def configure_optimizers(self):
-        return Adam(self.parameters(), lr=1e-4)
+        return Adam(self.parameters(), lr=self.hparams.lr)
 
 
 def collate_fn(batch):
