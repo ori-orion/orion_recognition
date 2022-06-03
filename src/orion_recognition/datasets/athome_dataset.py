@@ -24,10 +24,10 @@ class AtHomeImageDataset(Dataset):
         self.bbox_brightness_margin = bbox_brightness_margin
 
         with open(os.path.join(dataset_dir, "labels.txt"), "r") as f:
-            base_labels = f.read().split("\n")
+            base_labels = f.read().strip().split("\n")
 
         with open(label_path, "r") as f:
-            self.labels = f.read().split("\n")
+            self.labels = f.read().strip().split("\n")
 
         self.image_label_pairs = []
 

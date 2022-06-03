@@ -19,9 +19,11 @@ def load_resnet(n_classes):
     return model_ft
 
 
-def load_finetuned_resnet(finetuned_path, n_classes):
+def load_finetuned_resnet(finetuned_path, n_classes, eval=True):
     model = load_resnet(n_classes)
     model.load_state_dict(torch.load(finetuned_path))
+    if eval:
+        model.eval()
     return model
 
 
