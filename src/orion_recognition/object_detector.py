@@ -38,9 +38,11 @@ class ObjectDetector(torch.nn.Module):
         
     def forward(self, img):
         img = np.concatenate(img)
+        s = img.shape
         x = torch.as_tensor(img).to(self.device).float().unsqueeze(0)
         print("forward started with img size: {}".format(x.shape))
         y = self.model(x)
+        
         
         y = [{k: v.cpu().detach().numpy() for k,v in y[i].items()} for i in range(len(y))]
         if classifer:
@@ -61,7 +63,7 @@ class ObjectDetector(torch.nn.Module):
                     new_labels.append(self.convert_label_index_to_string(label))
                     new_scores.append(score)
                     new_boxes.append(box)
-                    new_label, new_score = self.classfier(x[:, :, int(box[1]):int(box[3]), int(box[0]):int(box[2])])
+                    new_label, new_score = self.classfier(x[:, :, max(0, int(box[1])-10):min(int(box[3])+10, s[1]-1), max(0,int(box[0]-10)):min(int(box[2])+10, s[2]-1)])
                     new_labels.append(self.convert_label_index_to_string(new_label, coco=False))
                     new_scores.append(new_score)
                     new_boxes.append(box)
@@ -107,7 +109,7 @@ class ObjectDetector(torch.nn.Module):
             rval = False
 
         while rval:
-            detections = self.model([image_tensor])[0]
+            detections = self.forward([image_tensor])[0]
             for detection, label in zip(detections['boxes'], detections['labels']):
                 cv2.rectangle(frame, (int(detection[0]), int(detection[1])), (int(detection[2]), int(detection[3])), (255, 0, 0), 3)
                 cv2.putText(frame, str(label), (int(detection[0]), int(detection[1])), cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
