@@ -2,7 +2,7 @@
 ssd_mobilenet_v1_coco_2018_01_28
 # Byte-compiled / optimized / DLL files
 __pycache__/
-src/orion_recognition/__pycache__/
+src/orion_recognition/__pycache__/*
 *.py[cod]
 *$py.class
 
