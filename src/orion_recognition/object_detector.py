@@ -86,12 +86,12 @@ class ObjectDetector(torch.nn.Module):
 
         if vc.isOpened(): # try to get the first frame
             rval, frame = vc.read()
-            image_tensor = transforms.ToTensor()(frame)#.to(self.device).float()
+            image_tensor = transforms.ToTensor()(frame).to(self.device).float()
         else:
             rval = False
 
         while rval:
-            detections = self.forward([image_tensor])[0]
+            detections = self.model([image_tensor])[0]
             for detection, label in zip(detections['boxes'], detections['labels']):
                 cv2.rectangle(frame, (int(detection[0]), int(detection[1])), (int(detection[2]), int(detection[3])), (255, 0, 0), 3)
                 cv2.putText(frame, str(label), (int(detection[0]), int(detection[1])), cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
@@ -109,7 +109,7 @@ class ObjectDetector(torch.nn.Module):
 if __name__ == '__main__':
     detector = ObjectDetector()
     print(detector.device)
-    result = detector.detect_video()
+    #result = detector.detect_video()
     #detector.train_on_data()
     #result = detector.detect_random()
     #print(type(result[0]['boxes']))
