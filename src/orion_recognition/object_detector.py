@@ -11,6 +11,7 @@ import cv2
 import gc
 from orion_recognition.object_classifer import ObjectClassifer
 from PIL import Image
+import rospkg
 
 
 classifer=True
@@ -26,10 +27,15 @@ class ObjectDetector(torch.nn.Module):
         if classifer:
             self.classfier = ObjectClassifer()
             self.classfier.eval()
+
+        rospack = rospkg.RosPack()
+        pkg_path = rospack.get_path('orion_recognition')
+        labels_path = pkg_path + "/src/orion_recognition"
+
         self.coco_labels = []
-        with open('coco_labels2017.txt', 'r') as in_file:
+        with open(labels_path + '/coco_labels2017.txt', 'r') as in_file:
             self.coco_labels = in_file.readlines()
-        with open('labels.txt', 'r') as in_file:
+        with open(labels_path + '/labels.txt', 'r') as in_file:
             self.imagenet_labels = in_file.readlines()
             
         self.all_labels = self.coco_labels+self.imagenet_labels
