@@ -100,7 +100,9 @@ class BboxPublisher(object):
         return depth_sum / gaussian_sum;
         
 
-    def callback(self, ros_image, depth_data):
+    def callback(self, ros_image:Image, depth_data:Image):
+        stamp = rospy.Time.now();
+
         # get images from cv bridge
         image = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
         depth = np.array(self.bridge.imgmsg_to_cv2(depth_data, 'passthrough'),
@@ -176,7 +178,8 @@ class BboxPublisher(object):
 
             # create detection instance
             detection = Detection(score_lbl, center_x, center_y, width, height,
-                                  size, colour, obj[0], obj[1], obj[2], score)
+                                  size, colour, obj[0], obj[1], obj[2], stamp)
+            
 
             detections.append(detection)
             if score > min_acceptable_score:
