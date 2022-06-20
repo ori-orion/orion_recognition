@@ -26,7 +26,7 @@ class ObjectClassifer(torch.nn.Module):
     def forward(self, img):
         # img_resized = transforms.functional.resize(img, size=[224])
         img_resized = img
-        print("Image shape: {}".format(img.shape))
+        # print("Image shape: {}".format(img.shape))
         output = self.model(img_resized)
         probabilities = torch.nn.functional.softmax(output[0], dim=0)
         return torch.argmax(probabilities), torch.max(probabilities)

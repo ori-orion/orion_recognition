@@ -20,7 +20,9 @@ buffer = 20
 class ObjectDetector(torch.nn.Module):
     def __init__(self):
         super(ObjectDetector, self).__init__()
-        print(torch.cuda.memory_allocated(0))
+        print("Is cuda available? {}".format(torch.cuda.is_available()))
+        print("cuda memory allocated: {}".format(torch.cuda.memory_allocated())) # does not cause seg fault
+        # print(torch.cuda.memory_allocated(0)) # causes seg fault
         self.device= torch.device( "cuda:0" if torch.cuda.is_available() else  "cpu")
         self.model = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
         self.model.to(self.device).float()
@@ -47,18 +49,19 @@ class ObjectDetector(torch.nn.Module):
         img = np.concatenate(img)
         s = img.shape
         x = torch.as_tensor(img).to(self.device).float().unsqueeze(0)
-        print("forward started with img size: {}".format(x.shape))
-        y = self.model(x)
-        
-        
+        # print("forward started with img size: {}".format(x.shape))
+        y = self.model(x)        
+
         y = [{k: v.cpu().detach().numpy() for k,v in y[i].items()} for i in range(len(y))]
+        # print("Detected COCO objects: {}".format([self.convert_label_index_to_string(l,coco=True) for l in y[0]['labels']]))
+
         if classifer:
             y_new = [{}]
             new_labels = []
             new_scores = []
             new_boxes = []
             for box, label, score in zip(y[0]['boxes'], y[0]['labels'], y[0]['scores']):
-                print("box corners: {}, x-size: {}, y-size: {}, label: {}".format(box, box[2]-box[0], box[3]-box[1], label))
+                # print("box corners: {}, x-size: {}, y-size: {}, label: {}".format(box, box[2]-box[0], box[3]-box[1], label))
                 min_dim_size = 25
                 if (box[2]-box[0]<min_dim_size) or (box[3]-box[1]<min_dim_size):
                     # dont take box that is too small
@@ -78,8 +81,10 @@ class ObjectDetector(torch.nn.Module):
             y_new[0]['boxes']=new_boxes
             y_new[0]['labels']=new_labels
             y_new[0]['scores']=new_scores
+            print("Detected objects (COCO + RoboCup): {}\n".format(y_new[0]['labels']))
             return y_new
         else:
+            print("Detected objects (COCO only): {}\n".format(y[0]['labels']))
             return y 
         
     def convert_label_index_to_string(self, index, coco=True):
