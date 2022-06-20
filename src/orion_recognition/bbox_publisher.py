@@ -39,7 +39,7 @@ class BboxPublisher(object):
         self.depth_sub = message_filters.Subscriber(depth_topic, Image)
 
         #synchronise subscribers
-        self.subscribers = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 3, 0.5)
+        self.subscribers = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 0, 0.5)
 
         #Publishers
         self.image_pub = rospy.Publisher('/vision/bbox_image', Image, queue_size=10)
