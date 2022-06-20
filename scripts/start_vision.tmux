@@ -6,23 +6,21 @@ SESSION=vision
 # Set this variable in order to source ORIon ROS workspace
 ORION_WS=/home/$USER/orion_ws/devel/setup.bash
 
-# Set this variable to run in everything in simulation, with a local roscore. Otherwise, run on HSRB
-SIM_MODE=false
-
-# Set SIM_MODE according to input argument #1, if supplied. Otherwise, just leave it false
-if ! [ -z "$1" ]
+# if arg #1 is 1, then run in everything in simulation, with a local roscore. 
+# it arg #1 is 0, or unset, then it will run on the HSRB
+if [ -z "$1" ]
   then
+    SIM_MODE=0
+  else
     SIM_MODE=$1
 fi
 
-
-if [ "$SIM_MODE" = true ]
-then
+if [ $SIM_MODE -eq 1 ]; then
   ROS_MASTER_CMD="sim_mode"
-  echo 'Launching in sim_mode'
+  echo "Using sim_mode"
 else
   ROS_MASTER_CMD="hsrb_mode"
-  echo 'Launching in hsrb_mode'
+  echo "Using hsrb_mode"
 fi
 
 _SRC_ENV="tmux send-keys source Space $ORION_WS C-m "
