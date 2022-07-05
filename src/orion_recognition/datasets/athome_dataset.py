@@ -35,8 +35,10 @@ class AtHomeImageDataset(Dataset):
             for line in f.read().strip().split("\n"):
                 path, base_label_id = line.split("\t")
                 image_path = path.replace("/PATH/TO/DATABASE/DIRECTORY/athome", ATHOME_DATASET_DIR)
-                label_index = self.labels.index(base_labels[int(base_label_id)])
-                self.image_label_pairs.append((image_path, label_index))
+                label_name = base_labels[int(base_label_id)]
+                if label_name in self.labels:
+                    label_index = self.labels.index(label_name)
+                    self.image_label_pairs.append((image_path, label_index))
 
     @property
     def n_classes(self):
