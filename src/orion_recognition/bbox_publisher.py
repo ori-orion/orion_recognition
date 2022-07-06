@@ -35,11 +35,11 @@ class BboxPublisher(object):
 
 
         # Subscribers
-        self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=10)
-        self.depth_sub = message_filters.Subscriber(depth_topic, Image)
+        self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=1)
+        self.depth_sub = message_filters.Subscriber(depth_topic, Image, queue_size=1)
 
         #synchronise subscribers
-        self.subscribers = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 3, 0.5)
+        self.subscribers = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 1, 0.5)
 
         #Publishers
         self.image_pub = rospy.Publisher('/vision/bbox_image', Image, queue_size=10)
@@ -100,7 +100,9 @@ class BboxPublisher(object):
         return depth_sum / gaussian_sum;
         
 
-    def callback(self, ros_image, depth_data):
+    def callback(self, ros_image:Image, depth_data:Image):
+        stamp = rospy.Time.now();
+
         # get images from cv bridge
         image = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
         depth = np.array(self.bridge.imgmsg_to_cv2(depth_data, 'passthrough'),
@@ -176,7 +178,8 @@ class BboxPublisher(object):
 
             # create detection instance
             detection = Detection(score_lbl, center_x, center_y, width, height,
-                                  size, colour, obj[0], obj[1], obj[2], score)
+                                  size, colour, obj[0], obj[1], obj[2], stamp)
+            
 
             detections.append(detection)
             if score > min_acceptable_score:
