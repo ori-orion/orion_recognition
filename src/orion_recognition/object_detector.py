@@ -37,7 +37,7 @@ class ObjectDetector(torch.nn.Module):
         self.coco_labels = []
         with open(labels_path + '/coco_labels2017.txt', 'r') as in_file:
             self.coco_labels = in_file.readlines()
-        with open(labels_path + '/labels.txt', 'r') as in_file:
+        with open(labels_path + '/labels_short.txt', 'r') as in_file:
             self.imagenet_labels = in_file.readlines()
             
         self.all_labels = self.coco_labels+self.imagenet_labels

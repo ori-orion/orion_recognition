@@ -19,7 +19,7 @@ class ObjectClassifer(torch.nn.Module):
         self.device= torch.device( "cuda:0" if torch.cuda.is_available() else  "cpu")
         rospack = rospkg.RosPack()
         pkg_path = rospack.get_path('orion_recognition')
-        model_path = pkg_path + "/src/orion_recognition/resnet_epoch_18.pth"
+        model_path = pkg_path + "/src/orion_recognition/resnet_epoch_999.pth"
         self.model = load_finetuned_resnet(model_path, 180, eval=True)
         self.model.to(self.device).float()
         
