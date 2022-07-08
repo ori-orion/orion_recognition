@@ -12,84 +12,41 @@ $ hsrb_mode
 <hsrb>~$ source catkin_ws/devel/setup.bash
 ```
 ## Object detection
-### Installation
-https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/installation.md
 
-### To change to a new model
-Download a new model from:
-https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md
+### BboxPublisher Node
+The node file is located at `src/orion_recognition/bbox_publisher.py`. 
+The node can be spun up using the set-up file here: `scripts/bbox_publisher_node.py`
 
-Unzip it and place it under `src/orion_recognition`.
+#### Subscribers and Publishers
+BboxPublisher subscribes to the image_topic and the depth_topic. The two subscriptions are synchronized to make sure the image and the depth come from similar times. 
 
-Change the `model_name` in `scripts/bbox_publisher_node.py`.
+It publishes two items, one being a DetectionArray of the detections made in a frame('/vision/bbox_detections/'), and the frame image with bounding boxes overlayed('/vision/bbox_image').
 
-### To train a custom model
-See https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/using_your_own_dataset.md and https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/running_locally.md.
+#### Detection
+A single frame from the image_topic is sent to an `ObjectDetector`. This returns a dictionary of the boxes, labels and scores of the detections made. The box is defined by a tuple of the x-y values of the top left corner and the bottom right corner.
 
-### Launch
-The launch file does not work.
-```
-<hsrb>~$ roslaunch orion_recognition recognition.launch
-```
-Ideally, this would launch `bbox_publisher_node.py` and `detection_tf_publisher_node.py`.
+We then use the middle point of the box to determine the distance of the object, and the depth of the object is determined by the average of the width and the high of the box.The colour of the object is determined as the average of the the pixels in the box. 
 
-Alternatively, run them separately.
-```
-<hsrb>~$ rosrun orion_recognition bbox_publisher_node.py
-<hsrb>~$ rosrun orion_recognition detection_tf_publisher_node.py
-```
+This is used to create a Detection instance, as defined in `orion_actions`. The detections are then filtered for their score, and then grouped into detections with the same labels. The detections with the same labels undergo non-maximum supression.
 
-### To run check for object action server
-```
-<hsrb>~$ rosrun orion_recognition check_for_object_server_node.py
-```
+The resulting `clean_detections` are then used to create our frame with bounding boxes overlayed, and the DetectionArray which will be published. 
 
-### What do the scripts do?
-`bbox_publisher_node.py` subscribes to `/hsrb/head_rgbd_sensor/rgb/image_rect_color` (Image)
+#### Changeable Parameters
 
-and publishes to
-
-`/vision/bbox_detections` (DetectionArray, information about detected bounding boxes, 3d location, you can also find the mean color and the size (not accurate) of the object in this message now.)
-
-`/vision/bbox_image`, (Image, bounding boxes in an image for visualisation)
-
-`detection_tf_publisher_node.py` subscribes to `/vision/bbox_detections` and `/hsrb/head_rgbd_sensor/depth_registered/image_rect_raw` (Image, depth image) and broadcasts TF frames.
-
-## Human pose detection
-### Launch
-```
-<hsrb>~$ rosrun orion_recognition pose_publisher_node.py
-```
-
-### What do the scripts do?
-`pose_publisher_node.py` subscribes to `/hsrb/head_rgbd_sensor/rgb/image_rect_color` (Image)
-
-and publishes to
-
-`/vision/pose_detections` (DetectionArray, coordinates of each marker point, e.g. nose_x, nose_y ...)
-
-Available marker points: Nose, LEye, REye, LEar, REar, LShoulder, RShoulder, LElbow, RElbow, LWrist, RWrist, LHip, RHip, LKnee, Rknee, LAnkle, RAnkle, Neck
-
-Now this message also gives you two additional bool values: waving, sitting, to predict whether this person is waving or sitting.
-
-`/vision/pose_image`, (Image, skeletons in an image for visualisation)
-
-`pose_tf_publisher_node.py` subscribes to `/vision/pose_detections` (PoseDetectionArray) and `/hsrb/head_rgbd_sensor/depth_registered/image_rect_raw` (Image) and broadcasts TF frames in the format of person_red_0, person_red_1, person_blue_0, etc.
-
-## Face detection
-### Launch
-```
-<hsrb>~$ rosrun orion_recognition face_publisher_node.py
-```
-
-### What do the scripts do?
-`face_publisher_node.py` subscribes to `/hsrb/head_rgbd_sensor/rgb/image_rect_color` (Image)
-
-and publishes to
-
-`/vision/face_bbox_detections` (FaceDetectionArray, information about bounding boxes locations, age(not accurate but at least is somehow reasonable now), gender, e.g.'M'/'F', emotion, e.g. 'happy')
+1. Line 22 - `min_acceptable_score`: The minimum score a detection can have to be considered to be valid. Between 0 and 1.
+2. Line 25 - `iou_threshold`: The intersection-over-union threshold, defines how much two boxes need to overlap before being considered to be the same image. The higher it is, a larger proportion needs to overlap. Between 0 and 1.
+3. Line 158 - `z_size`: The relationship between the width and height of the object and it's depth is defined here. Default assumes that the object is a cube, change if dimensions are known.
 
 
-`/vision/face_bbox_image`, (Image, bounding boxes in an image with age and gender information for visualisation)
+### Object Detector
 
+#### Package Info
+Located at `src/orion_recognition/object_detector.py`.
+Takes in the image as a tensor, and passes it though a pre-trained object detector, called `fasterrcnn_resnet50_fpn`. This produces the bounding boxes, the labels and scores detected in the frame. The labels are numerical values that correspond to a string in the file `coco_labels2017.txt`. 
+
+The label number 1 corresponds to a human detection. Other detections are parsed through to an objected classifer, which has been trained by Shu. The object classifer takes in a section of the frame, and returns the most likely object in the image. 
+
+#### Changeable Parameters
+1. Line 17 - `classifer` : A boolean determining whether the classifer will be used or not. 
+2. Line 18 - `Buffer`: The number of pixels added to the edge of the bounding box of an detected object before it is parsed to the object classifer. 
 
