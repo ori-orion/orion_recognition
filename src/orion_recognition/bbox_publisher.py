@@ -101,7 +101,7 @@ class BboxPublisher(object):
         
 
     def callback(self, ros_image:Image, depth_data:Image):
-        stamp = rospy.Time.now();
+        stamp = ros_image.header.stamp;
 
         # get images from cv bridge
         image = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
