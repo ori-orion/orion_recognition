@@ -247,7 +247,7 @@ class BboxPublisher(object):
             h = std_msgs.msg.Header()
             h.stamp = rospy.Time.now()
             self.detections_pub.publish(DetectionArray(h, clean_detections))
-            self.image_pub.publish(image_bgr)
+            self.image_pub.publish(self.bridge.cv2_to_imgmsg(image_bgr, "bgr8"))
             #print(clean_detections)
         except CvBridgeError as e:
             print(e)
