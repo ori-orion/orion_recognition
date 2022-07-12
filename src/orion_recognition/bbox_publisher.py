@@ -104,7 +104,7 @@ class BboxPublisher(object):
         stamp = ros_image.header.stamp;
 
         # get images from cv bridge
-        image = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
+        image = self.bridge.imgmsg_to_cv2(ros_image, "rgb8")
         depth = np.array(self.bridge.imgmsg_to_cv2(depth_data, 'passthrough'),
                          dtype=np.float32)
 
@@ -168,7 +168,7 @@ class BboxPublisher(object):
             # Get Colour
             crop = image_np[int(box[0]):int(box[2]), int(box[1]):int(box[3])]
             RGB = np.mean(crop, axis=(0,1))
-            RGB = (RGB[2], RGB[1], RGB[0])
+            RGB = (RGB[0], RGB[1], RGB[2])
             colour = ColorNames.findNearestOrionColorName(RGB)
 
             # create label
@@ -231,13 +231,15 @@ class BboxPublisher(object):
         # NOTE: Start of block to be tested ------
         clean_detections = []
 
+        image_bgr = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
+
         for label in boxes_per_label:
             clean_detections += [detections_per_label[label][i] for i in keep[label]]
             for j in keep[label]:
                 top_left = (int(boxes_per_label[label][j][0]), int(boxes_per_label[label][j][1]))
             bottom_right = (int(boxes_per_label[label][j][2]), int(boxes_per_label[label][j][3]))
-            cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 3)
-            cv2.putText(image, (str(label)+': '+str(scores_per_label[label][j])), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
+            cv2.rectangle(image_bgr, top_left, bottom_right, (255, 0, 0), 3)
+            cv2.putText(image_bgr, (str(label)+': '+str(scores_per_label[label][j])), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
         # NOTE: End of block to be tested ------
         
         # Publish nodes
@@ -245,7 +247,7 @@ class BboxPublisher(object):
             h = std_msgs.msg.Header()
             h.stamp = rospy.Time.now()
             self.detections_pub.publish(DetectionArray(h, clean_detections))
-            self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, "bgr8"))
+            self.image_pub.publish(image_bgr)
             #print(clean_detections)
         except CvBridgeError as e:
             print(e)
