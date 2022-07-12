@@ -16,6 +16,8 @@ import rospkg
 classifer = True
 buffer = 20
 
+PERSON_LABEL = 1
+
 
 class ObjectDetector(torch.nn.Module):
     def __init__(self):
@@ -46,9 +48,8 @@ class ObjectDetector(torch.nn.Module):
             self.label_map[self.all_labels[i]] = i + 1
 
     def forward(self, img):
-        img = np.concatenate(img)
-        s = img.shape
-        x = torch.as_tensor(img).to(self.device).float().unsqueeze(0)
+        C, H, W = img.size()
+        x = torch.as_tensor(img, device=self.device, dtype=torch.float)
         # print("forward started with img size: {}".format(x.shape))
         y = self.model(x)
 
@@ -61,12 +62,13 @@ class ObjectDetector(torch.nn.Module):
             new_scores = []
             new_boxes = []
             for box, label, score in zip(y[0]['boxes'], y[0]['labels'], y[0]['scores']):
+                w_min, h_min, w_max, h_max = box
                 # print("box corners: {}, x-size: {}, y-size: {}, label: {}".format(box, box[2]-box[0], box[3]-box[1], label))
                 min_dim_size = 25
-                if (box[2] - box[0] < min_dim_size) or (box[3] - box[1] < min_dim_size):
+                if (h_max - h_min < min_dim_size) or (w_max - w_min < min_dim_size):
                     # dont take box that is too small
                     continue
-                if label == 1:
+                if label == PERSON_LABEL:
                     new_labels.append(self.convert_label_index_to_string(label))
                     new_scores.append(score)
                     new_boxes.append(box)
@@ -75,8 +77,8 @@ class ObjectDetector(torch.nn.Module):
                     new_scores.append(score)
                     new_boxes.append(box)
                     new_label, new_score = self.classfier(
-                        x[:, :, max(0, int(box[1]) - buffer):min(int(box[3]) + buffer, s[1] - 1),
-                        max(0, int(box[0] - buffer)):min(int(box[2]) + buffer, s[2] - 1)])
+                        x[:, :, max(0, int(h_min) - buffer):min(int(h_max) + buffer, H),
+                        max(0, int(w_min - buffer)):min(int(w_max) + buffer, W)])
                     new_labels.append(self.convert_label_index_to_string(new_label, coco=False))
                     new_scores.append(new_score)
                     new_boxes.append(box)
@@ -97,7 +99,7 @@ class ObjectDetector(torch.nn.Module):
 
     def detect_random(self):
         self.model.eval()
-        x = [torch.rand(3, 300, 400).to(self.device).float(), torch.rand(3, 500, 400).to(self.device).float()]
+        x = torch.rand(2, 3, 300, 400).to(self.device).float()
         predictions = self.model(x)
         return predictions
 
@@ -107,7 +109,7 @@ class ObjectDetector(torch.nn.Module):
         path2json = "./annotations/instances_val2017.json"
         coco_dataset = datasets.CocoDetection(root=path2data, annFile=path2json, transform=transforms.ToTensor())
         test = coco_dataset[3][0].to(self.device).float()
-        output = self.model([test])
+        output = self.model(test.unsqueeze(0))
         return output
 
     def detect_video(self):
@@ -115,14 +117,12 @@ class ObjectDetector(torch.nn.Module):
         cv2.namedWindow("preview")
         vc = cv2.VideoCapture(0)
 
-        if vc.isOpened():  # try to get the first frame
+        while vc.isOpened():  # try to get the first frame
             rval, frame = vc.read()
-            image_tensor = transforms.ToTensor()(frame).to(self.device).float()
-        else:
-            rval = False
-
-        while rval:
-            detections = self.forward([image_tensor.cpu().numpy()])[0]
+            if not rval:
+                break
+            image_tensor = transforms.ToTensor()(frame)
+            detections = self(image_tensor.unsqueeze(0))[0]
             for detection, label in zip(detections['boxes'], detections['labels']):
                 cv2.rectangle(frame, (int(detection[0]), int(detection[1])), (int(detection[2]), int(detection[3])),
                               (255, 0, 0), 3)
