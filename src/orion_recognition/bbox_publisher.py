@@ -19,11 +19,11 @@ import rospkg
 import torch
 import os
 
-min_acceptable_score = 0.50
+min_acceptable_score = 0.6
 # When performing non-maximum suppression, the intersection-over-union threshold defines
 # the proportion of intersection a bounding box must cover before it is determined to be 
 # part of the same object. 
-iou_threshold = 0.40
+iou_threshold = 0.3
 
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
@@ -101,7 +101,7 @@ class BboxPublisher(object):
         
 
     def callback(self, ros_image:Image, depth_data:Image):
-        stamp = rospy.Time.now();
+        stamp = ros_image.header.stamp;
 
         # get images from cv bridge
         image = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
@@ -246,6 +246,7 @@ class BboxPublisher(object):
             h.stamp = rospy.Time.now()
             self.detections_pub.publish(DetectionArray(h, clean_detections))
             self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, "bgr8"))
+            #print(clean_detections)
         except CvBridgeError as e:
             print(e)
 

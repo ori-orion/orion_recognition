@@ -45,6 +45,7 @@ class DetectionTFPublisher(object):
                 t.transform.rotation.z = np.sin(-np.pi / 4)
                 t.transform.rotation.w = np.cos(-np.pi / 4)
                 trans.append(t)
+                #print(trans)
         self._br.sendTransform(trans)
 
 

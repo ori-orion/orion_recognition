@@ -20,7 +20,7 @@ class ObjectClassifer(torch.nn.Module):
         rospack = rospkg.RosPack()
         pkg_path = rospack.get_path('orion_recognition')
         model_path = pkg_path + "/src/orion_recognition/resnet_epoch_999.pth"
-        self.model = load_finetuned_resnet(model_path, 180, eval=True)
+        self.model = load_finetuned_resnet(model_path, 100, eval=True)
         self.model.to(self.device).float()
         
     def forward(self, img):
