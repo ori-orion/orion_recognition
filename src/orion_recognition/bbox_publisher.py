@@ -110,7 +110,7 @@ class BboxPublisher(object):
 
         # apply model to image
         with torch.no_grad():
-            detections = self.detector(image_tensor.unsqueeze(0))[0]
+            detections = self.detector(image_tensor)
 
         boxes = detections['boxes']
         labels = detections['labels']
@@ -127,26 +127,26 @@ class BboxPublisher(object):
         # NOTE: End of block to be tested ------
 
         for i in range(len(boxes)):
-            box = boxes[i]
+            w_min, h_min, w_max, h_max = box = boxes[i]
             label = labels[i]
             score = scores[i]
 
             # Dimensions of bounding box
-            center_x = (box[0] + box[2]) / 2
-            width = box[2] - box[0]
-            center_y = (box[1] + box[3]) / 2
-            height = box[3] - box[1]
+            center_x = (w_min + w_max) / 2
+            width = w_max - w_min
+            center_y = (h_min + h_max) / 2
+            height = h_max - h_min
 
             # Get depth
-            trim_depth = depth[int(box[1]):int(box[3]), int(box[0]):int(box[2])]
+            trim_depth = depth[int(h_min):int(h_max), int(w_min):int(w_max)]
             valid = trim_depth[np.nonzero(trim_depth)]
 
             # Use depth to get position, and if depth is not valid, discard bounding box
             if valid.size != 0:
                 z = np.min(valid) * 1e-3
-                top_left_3d = np.array([int(box[0]), int(box[1]), 0])
+                top_left_3d = np.array([int(w_min), int(h_min), 0])
                 top_left_camera = np.dot(self._invK, top_left_3d) * z
-                bottom_right_3d = np.array([int(box[2]), int(box[3]), 0])
+                bottom_right_3d = np.array([int(w_max), int(h_max), 0])
                 bottom_right_camera = np.dot(self._invK, bottom_right_3d) * z
                 corner_to_corner = top_left_camera - bottom_right_camera
                 x_size = abs(corner_to_corner[0])
@@ -154,7 +154,6 @@ class BboxPublisher(object):
                 z_size = (x_size + y_size) / 2.0
                 size = Point(x_size, y_size, z_size)
             else:
-                size = Point(0.0, 0.0, 0.0)
                 print('no valid depth for object size')
                 continue
 
@@ -163,7 +162,7 @@ class BboxPublisher(object):
             obj = np.dot(self._invK, image_point) * z
 
             # Get Colour
-            crop = image_np[int(box[0]):int(box[2]), int(box[1]):int(box[3])]
+            crop = image_np[int(w_min):int(w_max), int(h_min):int(h_max)]
             RGB = np.mean(crop, axis=(0, 1))
             RGB = (RGB[2], RGB[1], RGB[0])
             colour = ColorNames.findNearestOrionColorName(RGB)
@@ -233,7 +232,7 @@ class BboxPublisher(object):
                 top_left = (int(boxes_per_label[label][j][0]), int(boxes_per_label[label][j][1]))
             bottom_right = (int(boxes_per_label[label][j][2]), int(boxes_per_label[label][j][3]))
             cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 3)
-            cv2.putText(image, (str(label) + ': ' + str(scores_per_label[label][j])), top_left,
+            cv2.putText(image, f"{label}: {scores_per_label[label][j].item():.3f}", top_left,
                         cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 1)
         # NOTE: End of block to be tested ------
 

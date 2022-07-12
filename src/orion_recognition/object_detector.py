@@ -27,7 +27,7 @@ class ObjectDetector(torch.nn.Module):
         # print(torch.cuda.memory_allocated(0)) # causes seg fault
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
-        self.model.to(self.device).float()
+        self.model.to(self.device)
         if classifer:
             self.classfier = ObjectClassifer()
             self.classfier.eval()
@@ -38,9 +38,11 @@ class ObjectDetector(torch.nn.Module):
 
         self.coco_labels = []
         with open(labels_path + '/coco_labels2017.txt', 'r') as in_file:
-            self.coco_labels = in_file.readlines()
+            self.coco_labels = in_file.read().strip().split("\n")
         with open(labels_path + '/labels_short.txt', 'r') as in_file:
-            self.imagenet_labels = in_file.readlines()
+            self.imagenet_labels = in_file.read().strip().split("\n")
+
+        print(self.coco_labels)
 
         self.all_labels = self.coco_labels + self.imagenet_labels
         self.label_map = {}
@@ -48,47 +50,45 @@ class ObjectDetector(torch.nn.Module):
             self.label_map[self.all_labels[i]] = i + 1
 
     def forward(self, img):
+        assert len(img.size()) == 3, "Assumes a single image input"
         C, H, W = img.size()
+
         x = torch.as_tensor(img, device=self.device, dtype=torch.float)
         # print("forward started with img size: {}".format(x.shape))
-        y = self.model(x)
+        y = self.model(x.unsqueeze(0))[0]
 
-        y = [{k: v.cpu().detach().numpy() for k, v in y[i].items()} for i in range(len(y))]
+        y = {k: v.cpu().detach().numpy() for k, v in y.items()}
         # print("Detected COCO objects: {}".format([self.convert_label_index_to_string(l,coco=True) for l in y[0]['labels']]))
 
         if classifer:
-            y_new = [{}]
+            y_new = {}
             new_labels = []
             new_scores = []
             new_boxes = []
-            for box, label, score in zip(y[0]['boxes'], y[0]['labels'], y[0]['scores']):
+            for box, label, score in zip(y['boxes'], y['labels'], y['scores']):
                 w_min, h_min, w_max, h_max = box
                 # print("box corners: {}, x-size: {}, y-size: {}, label: {}".format(box, box[2]-box[0], box[3]-box[1], label))
                 min_dim_size = 25
                 if (h_max - h_min < min_dim_size) or (w_max - w_min < min_dim_size):
                     # dont take box that is too small
                     continue
-                if label == PERSON_LABEL:
-                    new_labels.append(self.convert_label_index_to_string(label))
-                    new_scores.append(score)
-                    new_boxes.append(box)
-                else:
-                    new_labels.append(self.convert_label_index_to_string(label))
-                    new_scores.append(score)
-                    new_boxes.append(box)
+                new_labels.append(self.convert_label_index_to_string(label))
+                new_scores.append(score)
+                new_boxes.append(box)
+                if label != PERSON_LABEL:
                     new_label, new_score = self.classfier(
-                        x[:, :, max(0, int(h_min) - buffer):min(int(h_max) + buffer, H),
+                        x[:, max(0, int(h_min) - buffer):min(int(h_max) + buffer, H),
                         max(0, int(w_min - buffer)):min(int(w_max) + buffer, W)])
                     new_labels.append(self.convert_label_index_to_string(new_label, coco=False))
                     new_scores.append(new_score)
                     new_boxes.append(box)
-            y_new[0]['boxes'] = new_boxes
-            y_new[0]['labels'] = new_labels
-            y_new[0]['scores'] = new_scores
-            print("Detected objects (COCO + RoboCup): {}\n".format(y_new[0]['labels']))
+            y_new['boxes'] = new_boxes
+            y_new['labels'] = new_labels
+            y_new['scores'] = new_scores
+            print("Detected objects (COCO + RoboCup): {}\n".format(y_new['labels']))
             return y_new
         else:
-            print("Detected objects (COCO only): {}\n".format(y[0]['labels']))
+            print("Detected objects (COCO only): {}\n".format(y['labels']))
             return y
 
     def convert_label_index_to_string(self, index, coco=True):
@@ -99,7 +99,7 @@ class ObjectDetector(torch.nn.Module):
 
     def detect_random(self):
         self.model.eval()
-        x = torch.rand(2, 3, 300, 400).to(self.device).float()
+        x = torch.rand(3, 300, 400).to(self.device).float()
         predictions = self.model(x)
         return predictions
 
@@ -109,7 +109,7 @@ class ObjectDetector(torch.nn.Module):
         path2json = "./annotations/instances_val2017.json"
         coco_dataset = datasets.CocoDetection(root=path2data, annFile=path2json, transform=transforms.ToTensor())
         test = coco_dataset[3][0].to(self.device).float()
-        output = self.model(test.unsqueeze(0))
+        output = self.model(test)
         return output
 
     def detect_video(self):
@@ -122,15 +122,13 @@ class ObjectDetector(torch.nn.Module):
             if not rval:
                 break
             image_tensor = transforms.ToTensor()(frame)
-            detections = self(image_tensor.unsqueeze(0))[0]
+            detections = self(image_tensor)
             for detection, label in zip(detections['boxes'], detections['labels']):
                 cv2.rectangle(frame, (int(detection[0]), int(detection[1])), (int(detection[2]), int(detection[3])),
                               (255, 0, 0), 3)
                 cv2.putText(frame, str(label), (int(detection[0]), int(detection[1])), cv2.FONT_HERSHEY_COMPLEX, 0.5,
                             (0, 255, 0), 1)
             cv2.imshow("preview", frame)
-            rval, frame = vc.read()
-            image_tensor = transforms.ToTensor()(frame).to(self.device).float()
             key = cv2.waitKey(20)
             if key == 27:  # exit on ESC
                 break
