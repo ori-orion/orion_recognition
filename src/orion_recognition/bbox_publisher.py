@@ -6,7 +6,7 @@ from orion_actions.msg import Detection, DetectionArray, Label
 import sys
 import cv2
 import numpy as np
-import math;
+import math
 import rospy
 import std_msgs.msg
 from geometry_msgs.msg import Point
@@ -25,27 +25,26 @@ min_acceptable_score = 0.6
 # part of the same object. 
 iou_threshold = 0.3
 
+
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
         self.detector = orion_recognition.object_detector.ObjectDetector()
         self.detector.eval()
 
-  
         rospack = rospkg.RosPack()
-
 
         # Subscribers
         self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=1)
         self.depth_sub = message_filters.Subscriber(depth_topic, Image, queue_size=1)
 
-        #synchronise subscribers
+        # synchronise subscribers
         self.subscribers = message_filters.ApproximateTimeSynchronizer([self.image_sub, self.depth_sub], 1, 0.5)
 
-        #Publishers
+        # Publishers
         self.image_pub = rospy.Publisher('/vision/bbox_image', Image, queue_size=10)
         self.detections_pub = rospy.Publisher('/vision/bbox_detections', DetectionArray, queue_size=10)
 
-        #Image calibrator
+        # Image calibrator
         camera_info = rospy.wait_for_message(
             "/hsrb/head_rgbd_sensor/depth_registered/camera_info", CameraInfo)
         self._invK = np.linalg.inv(np.array(camera_info.K).reshape(3, 3))
@@ -53,9 +52,9 @@ class BboxPublisher(object):
         # Define bridge open cv -> RosImage
         self.bridge = CvBridge()
 
-        #Register a subscriber
+        # Register a subscriber
         self.subscribers.registerCallback(self.callback)
-    
+
     def getMeanDepth_gaussian(self, depth):
         """Ok so we want to mean over the depth image using a gaussian centred at the 
         mid point
@@ -71,37 +70,35 @@ class BboxPublisher(object):
         This should give a fairly good approximation for the depth.
         """
 
-        def shiftedGaussian(x:float, shift:float, s_dev:float) -> float:
-            return math.exp(-pow((x-shift)/s_dev, 2));
+        def shiftedGaussian(x: float, shift: float, s_dev: float) -> float:
+            return math.exp(-pow((x - shift) / s_dev, 2))
 
-        width:float = depth.shape[0];
-        height:float = depth.shape[1];
-        x_s_dev:float = width / 3;
-        y_s_dev:float = height / 3;
-        x_shift:float = width/2;
-        y_shift:float = height/2;
+        width: float = depth.shape[0]
+        height: float = depth.shape[1]
+        x_s_dev: float = width / 3
+        y_s_dev: float = height / 3
+        x_shift: float = width / 2
+        y_shift: float = height / 2
 
         # We need some record of the total amount of gaussian over the image so that we can work out
         # what to divide by. 
-        gaussian_sum:float = 0;
-        depth_sum:float = 0;
+        gaussian_sum: float = 0
+        depth_sum: float = 0
 
         for x in range(width):
-            x_gaussian = shiftedGaussian(x, x_shift, x_s_dev);
+            x_gaussian = shiftedGaussian(x, x_shift, x_s_dev)
             for y in range(height):
-                if (depth[x,y] != 0):
-                    point_multiplier:float = x_gaussian * shiftedGaussian(y, y_shift, y_s_dev);
-                    gaussian_sum += point_multiplier;
-                    depth_sum += depth[x,y] * point_multiplier;
-                pass;
-            pass;
+                if (depth[x, y] != 0):
+                    point_multiplier: float = x_gaussian * shiftedGaussian(y, y_shift, y_s_dev)
+                    gaussian_sum += point_multiplier
+                    depth_sum += depth[x, y] * point_multiplier
+                pass
+            pass
 
+        return depth_sum / gaussian_sum
 
-        return depth_sum / gaussian_sum;
-        
-
-    def callback(self, ros_image:Image, depth_data:Image):
-        stamp = ros_image.header.stamp;
+    def callback(self, ros_image: Image, depth_data: Image):
+        stamp = ros_image.header.stamp
 
         # get images from cv bridge
         image = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
@@ -111,7 +108,7 @@ class BboxPublisher(object):
         image_np = np.asarray(image)
         image_tensor = transforms.ToTensor()(image)
 
-        #apply model to image
+        # apply model to image
         with torch.no_grad():
             detections = self.detector([image_tensor])[0]
 
@@ -135,10 +132,10 @@ class BboxPublisher(object):
             score = scores[i]
 
             # Dimensions of bounding box
-            center_x = (box[0]+box[2])/2
-            width = box[2]-box[0]
-            center_y = (box[1]+box[3])/2
-            height = box[3]-box[1]
+            center_x = (box[0] + box[2]) / 2
+            width = box[2] - box[0]
+            center_y = (box[1] + box[3]) / 2
+            height = box[3] - box[1]
 
             # Get depth
             trim_depth = depth[int(box[1]):int(box[3]), int(box[0]):int(box[2])]
@@ -148,13 +145,13 @@ class BboxPublisher(object):
             if valid.size != 0:
                 z = np.min(valid) * 1e-3
                 top_left_3d = np.array([int(box[0]), int(box[1]), 0])
-                top_left_camera = np.dot(self._invK, top_left_3d)*z
+                top_left_camera = np.dot(self._invK, top_left_3d) * z
                 bottom_right_3d = np.array([int(box[2]), int(box[3]), 0])
-                bottom_right_camera = np.dot(self._invK, bottom_right_3d)*z
+                bottom_right_camera = np.dot(self._invK, bottom_right_3d) * z
                 corner_to_corner = top_left_camera - bottom_right_camera
                 x_size = abs(corner_to_corner[0])
                 y_size = abs(corner_to_corner[1])
-                z_size = (x_size + y_size)/2.0
+                z_size = (x_size + y_size) / 2.0
                 size = Point(x_size, y_size, z_size)
             else:
                 size = Point(0.0, 0.0, 0.0)
@@ -167,7 +164,7 @@ class BboxPublisher(object):
 
             # Get Colour
             crop = image_np[int(box[0]):int(box[2]), int(box[1]):int(box[3])]
-            RGB = np.mean(crop, axis=(0,1))
+            RGB = np.mean(crop, axis=(0, 1))
             RGB = (RGB[2], RGB[1], RGB[0])
             colour = ColorNames.findNearestOrionColorName(RGB)
 
@@ -179,11 +176,10 @@ class BboxPublisher(object):
             # create detection instance
             detection = Detection(score_lbl, center_x, center_y, width, height,
                                   size, colour, obj[0], obj[1], obj[2], stamp)
-            
 
             detections.append(detection)
             if score > min_acceptable_score:
-            	with torch.no_grad():
+                with torch.no_grad():
                     boxes_nms.append(torch.as_tensor(box))
                     scores_nms.append(torch.as_tensor(float(score)))
                     labels_nms.append(torch.as_tensor(float(self.detector.label_map[label])))
@@ -204,8 +200,8 @@ class BboxPublisher(object):
                 boxes_nms = torch.stack(boxes_nms)
                 scores_nms = torch.stack(scores_nms)
                 labels_nms = torch.stack(labels_nms)
-            #keep = ops.batched_nms(boxes_nms, scores_nms, labels_nms,iou_threshold)
-            #keep = ops.nms(boxes_nms, scores_nms,iou_threshold)
+            # keep = ops.batched_nms(boxes_nms, scores_nms, labels_nms,iou_threshold)
+            # keep = ops.nms(boxes_nms, scores_nms,iou_threshold)
             # NOTE: Start of block to be tested ------
             # A hacky equivalent of batched_nms, since we can't run that in Python 2!
             keep = {}
@@ -213,7 +209,7 @@ class BboxPublisher(object):
                 if len(boxes_per_label[label]) != 0:
                     current_boxes_nms = torch.stack(boxes_per_label[label])
                     current_scores_nms = torch.stack(scores_per_label[label])
-                    nms_res = ops.nms(current_boxes_nms, 
+                    nms_res = ops.nms(current_boxes_nms,
                                       current_scores_nms, iou_threshold)
                     keep[label] = nms_res
             # NOTE: End of block to be tested ------
@@ -237,16 +233,17 @@ class BboxPublisher(object):
                 top_left = (int(boxes_per_label[label][j][0]), int(boxes_per_label[label][j][1]))
             bottom_right = (int(boxes_per_label[label][j][2]), int(boxes_per_label[label][j][3]))
             cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 3)
-            cv2.putText(image, (str(label)+': '+str(scores_per_label[label][j])), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
+            cv2.putText(image, (str(label) + ': ' + str(scores_per_label[label][j])), top_left,
+                        cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 1)
         # NOTE: End of block to be tested ------
-        
+
         # Publish nodes
         try:
             h = std_msgs.msg.Header()
             h.stamp = rospy.Time.now()
             self.detections_pub.publish(DetectionArray(h, clean_detections))
             self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, "bgr8"))
-            #print(clean_detections)
+            # print(clean_detections)
         except CvBridgeError as e:
             print(e)
 
