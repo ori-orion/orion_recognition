@@ -198,47 +198,39 @@ class BboxPublisher(object):
             detection = Detection(score_lbl, center_x, center_y, width, height,
                                   size, colour, obj[0], obj[1], obj[2], stamp)
 
-            detections.append(detection)
-            boxes_nms.append(box)
-            scores_nms.append(score)
-            labels_nms.append(label)
-        """
             if score > min_acceptable_score:
-            	with torch.no_grad():
-                    boxes_nms.append(torch.as_tensor(box))
-                    scores_nms.append(torch.as_tensor(float(score)))
-                    labels_nms.append(torch.as_tensor(float(self.detector.label_map[label])))
-                    # NOTE: Start of block to be tested ------
-                    # Seperate by label for batched nms later on
-                    if label not in boxes_per_label:
-                        boxes_per_label[label] = []
-                        scores_per_label[label] = []
-                        detections_per_label[label] = []
-                    boxes_per_label[label].append(boxes_nms[-1])
-                    scores_per_label[label].append(scores_nms[-1])
-                    detections_per_label[label].append(detection)
-                    # NOTE: End of block to be tested ------
+                detections.append(detection)
+                boxes_nms.append(torch.as_tensor(box))
+                scores_nms.append(torch.as_tensor(float(score)))
+                labels_nms.append(torch.as_tensor(float(self.detector.label_map[label])))
+                # NOTE: Start of block to be tested ------
+                # Seperate by label for batched nms later on
+                boxes_per_label[label].append(boxes_nms[-1])
+                scores_per_label[label].append(scores_nms[-1])
+                detections_per_label[label].append(detection)
+                # NOTE: End of block to be tested ------
+            else:
+                continue
 
         # Perform non-maximum suppression on boxes according to their intersection over union (IoU)
-        with torch.no_grad():
-            if len(boxes_nms) != 0:
-                boxes_nms = torch.stack(boxes_nms)
-                scores_nms = torch.stack(scores_nms)
-                labels_nms = torch.stack(labels_nms)
+        # with torch.no_grad():
+        #     if len(boxes_nms) != 0:
+        #         boxes_nms = torch.stack(boxes_nms)
+        #         scores_nms = torch.stack(scores_nms)
+        #         labels_nms = torch.stack(labels_nms)
             #keep = ops.batched_nms(boxes_nms, scores_nms, labels_nms,iou_threshold)
             #keep = ops.nms(boxes_nms, scores_nms,iou_threshold)
             # NOTE: Start of block to be tested ------
             # A hacky equivalent of batched_nms, since we can't run that in Python 2!
-            keep = {}
-            for label in boxes_per_label:
-                if len(boxes_per_label[label]) != 0:
-                    current_boxes_nms = torch.stack(boxes_per_label[label])
-                    current_scores_nms = torch.stack(scores_per_label[label])
-                    nms_res = ops.nms(current_boxes_nms, 
-                                      current_scores_nms, iou_threshold)
-                    keep[label] = nms_res
+        keep = {}
+        for label in boxes_per_label:
+            if len(boxes_per_label[label]) != 0:
+                current_boxes_nms = torch.stack(boxes_per_label[label])
+                current_scores_nms = torch.stack(scores_per_label[label])
+                nms_res = ops.nms(current_boxes_nms,
+                                  current_scores_nms, iou_threshold)
+                keep[label] = nms_res
             # NOTE: End of block to be tested ------
-        """
         """ compatible with old version of keep
         clean_detections = [detections[i] for i in keep]
 
@@ -250,17 +242,18 @@ class BboxPublisher(object):
             cv2.putText(image, str(labels[j])+': '+str(self.label_dict[int(labels[j])-1])+str(scores_nms[j]), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)	
         """
         # NOTE: Start of block to be tested ------
-        clean_detections = detections
+        clean_detections = []
 
         image_bgr = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
-        # for label in boxes_per_label:
-        # clean_detections += [detections_per_label[label][i] for i in keep[label]]
-        for box, score in zip(boxes_nms, scores_nms):
-            top_left = (int(box[0]), int(box[1]))
-            bottom_right = (int(box[2]), int(box[3]))
-            cv2.rectangle(image_bgr, top_left, bottom_right, (255, 0, 0), 3)
-            cv2.putText(image_bgr, (str(label) + ': ' + str(score)), top_left, cv2.FONT_HERSHEY_COMPLEX, 0.5,
-                        (0, 255, 0), 1)
+        for label in boxes_per_label:
+            clean_detections += [detections_per_label[label][i] for i in keep[label]]
+            for j in keep[label]:
+                for box, score in zip(boxes_nms[label][j], scores_nms[label][j]):
+                    top_left = (int(box[0]), int(box[1]))
+                    bottom_right = (int(box[2]), int(box[3]))
+                    cv2.rectangle(image_bgr, top_left, bottom_right, (255, 0, 0), 3)
+                    cv2.putText(image_bgr, (str(label) + ': ' + str(score)), top_left, cv2.FONT_HERSHEY_COMPLEX, 0.5,
+                                (0, 255, 0), 1)
         # NOTE: End of block to be tested ------
 
         # Publish nodes
