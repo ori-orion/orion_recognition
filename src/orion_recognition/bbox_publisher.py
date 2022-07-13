@@ -72,9 +72,6 @@ class BboxPublisher(object):
         with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "object_sizes.json"), "r") as json_file:
             self.size_dict = json.load(json_file)
 
-        self.im_server = InteractiveMarkerServer("vision/object_volume")
-        self.pose_pub = rospy.Publisher('vision/pose', Pose, queue_size=1)
-
     # def getMeanDepth_gaussian(self, depth):
     #     """Ok so we want to mean over the depth image using a gaussian centred at the
     #     mid point
@@ -117,45 +114,6 @@ class BboxPublisher(object):
     #
     #     return depth_sum / gaussian_sum
 
-    def add_object(self, id: str, pose: Pose, size: Point, obj_class: str):
-        """
-        Deals with the adding of an object to the visualisation server.
-        id                  - The id of the object (and the id that rviz will use).
-        pose                - The pose of the object
-        size                - The size of the object
-        obj_class           - The label the object will be given in the visualisation.
-        num_observations    - The number of observations (will be used in a function for the alpha value of the object.)
-        """
-        self.im_server.erase(id)
-
-        int_marker = InteractiveMarker()
-        int_marker.header.frame_id = "map"
-        int_marker.name = id
-        int_marker.description = obj_class
-        int_marker.pose = pose
-
-        box_marker = Marker()
-        box_marker.type = Marker.CUBE
-        box_marker.pose.orientation.w = 1
-
-        box_marker.scale.x = size.x
-        box_marker.scale.y = size.y
-        box_marker.scale.z = size.z
-
-        box_marker.color.r = 0
-        box_marker.color.g = 0
-        box_marker.color.b = 1
-        box_marker.color.a = 0.3
-
-        button_control = InteractiveMarkerControl()
-        button_control.interaction_mode = InteractiveMarkerControl.BUTTON
-        button_control.always_visible = True
-        button_control.markers.append(box_marker)
-        int_marker.controls.append(button_control)
-
-        self.im_server.insert(int_marker)
-        self.im_server.applyChanges()
-
     def callback(self, ros_image: Image, depth_data: Image):
         stamp = ros_image.header.stamp
 
@@ -184,16 +142,16 @@ class BboxPublisher(object):
             if score < min_acceptable_score:
                 continue
 
-            w_min, h_min, w_max, h_max = box
+            x_min, y_min, x_max, y_max = box
 
             # Dimensions of bounding box
-            center_x = (w_min + w_max) / 2
-            width = w_max - w_min
-            center_y = (h_min + h_max) / 2
-            height = h_max - h_min
+            center_x = (x_min + x_max) / 2
+            width = x_max - x_min
+            center_y = (y_min + y_max) / 2
+            height = y_max - y_min
 
             # Get depth
-            trim_depth = depth[int(h_min):int(h_max), int(w_min):int(w_max)]
+            trim_depth = depth[int(y_min):int(y_max), int(x_min):int(x_max)]
             valid = trim_depth[np.nonzero(trim_depth)]
 
             # If depth is not valid, discard bounding box
@@ -203,9 +161,9 @@ class BboxPublisher(object):
 
             # Use depth to get position
             z = np.min(valid) * 1e-3
-            top_left_3d = np.array([int(w_min), int(h_min), 0])
+            top_left_3d = np.array([int(x_min), int(y_min), 1])         # Homogenous coordinates
             top_left_camera = np.dot(self._invK, top_left_3d) * z
-            bottom_right_3d = np.array([int(w_max), int(h_max), 0])
+            bottom_right_3d = np.array([int(x_max), int(y_max), 1])     # Homogenous coordinates
             bottom_right_camera = np.dot(self._invK, bottom_right_3d) * z
             corner_to_corner = top_left_camera - bottom_right_camera
             x_size = abs(corner_to_corner[0])
@@ -218,22 +176,11 @@ class BboxPublisher(object):
                 continue
 
             # Find object position
-            image_point = np.array([int(center_x), int(center_y), 1])
+            image_point = np.array([int(center_x), int(center_y), 1])         # Homogenous coordinates
             obj = np.dot(self._invK, image_point) * z
 
-            ik_pose = Pose()
-            ik_pose.position.x = image_point[0]
-            ik_pose.position.y = image_point[1]
-            ik_pose.position.z = image_point[2]
-            ik_pose.orientation.x = 0
-            ik_pose.orientation.y = 0
-            ik_pose.orientation.z = 0
-            ik_pose.orientation.w = 1
-
-            self.pose_pub.publish(ik_pose)
-
             # Get Colour
-            crop = image_np[int(w_min):int(w_max), int(h_min):int(h_max)]
+            crop = image_np[int(y_min):int(y_max), int(x_min):int(x_max)]
             RGB = np.mean(crop, axis=(0, 1))
             colour = ColorNames.findNearestOrionColorName(RGB)
 
@@ -269,9 +216,9 @@ class BboxPublisher(object):
 
         image_bgr = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
 
-        for ((w_min, h_min, w_max, h_max), label, score) in clean_bbox_tuples:
-            top_left = (int(w_min), int(h_min))
-            bottom_right = (int(w_max), int(h_max))
+        for ((x_min, y_min, x_max, y_max), label, score) in clean_bbox_tuples:
+            top_left = (int(x_min), int(y_min))
+            bottom_right = (int(x_max), int(y_max))
             cv2.rectangle(image_bgr, top_left, bottom_right, (255, 0, 0), 3)
             cv2.putText(image_bgr, f"{label}: {score}", top_left, cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 1)
 
