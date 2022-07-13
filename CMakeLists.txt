@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib_msgs
   message_generation
   orion_actions
+  visualization_msgs
 )
 
 catkin_python_setup()
@@ -21,6 +22,7 @@ generate_messages(
   DEPENDENCIES
   actionlib_msgs
   std_msgs
+  visualization_msgs
 )
 
 catkin_package(

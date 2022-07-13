@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 from collections import defaultdict
 
+from interactive_markers.interactive_marker_server import InteractiveMarkerServer
+from visualization_msgs.msg import InteractiveMarker, Marker, InteractiveMarkerControl
+
 import orion_recognition.object_detector
 import message_filters
 from orion_actions.msg import Detection, DetectionArray, Label
@@ -11,7 +14,7 @@ import math
 import json
 import rospy
 import std_msgs.msg
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, Pose
 from sensor_msgs.msg import CameraInfo, Image
 from cv_bridge import CvBridge, CvBridgeError
 from orion_recognition.colornames import ColorNames
@@ -69,6 +72,9 @@ class BboxPublisher(object):
         with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "object_sizes.json"), "r") as json_file:
             self.size_dict = json.load(json_file)
 
+        self.im_server = InteractiveMarkerServer("vision/object_volume")
+        self.pose_pub = rospy.Publisher('vision/pose', Pose, queue_size=1)
+
     # def getMeanDepth_gaussian(self, depth):
     #     """Ok so we want to mean over the depth image using a gaussian centred at the
     #     mid point
@@ -110,6 +116,45 @@ class BboxPublisher(object):
     #         pass
     #
     #     return depth_sum / gaussian_sum
+
+    def add_object(self, id: str, pose: Pose, size: Point, obj_class: str):
+        """
+        Deals with the adding of an object to the visualisation server.
+        id                  - The id of the object (and the id that rviz will use).
+        pose                - The pose of the object
+        size                - The size of the object
+        obj_class           - The label the object will be given in the visualisation.
+        num_observations    - The number of observations (will be used in a function for the alpha value of the object.)
+        """
+        self.im_server.erase(id)
+
+        int_marker = InteractiveMarker()
+        int_marker.header.frame_id = "map"
+        int_marker.name = id
+        int_marker.description = obj_class
+        int_marker.pose = pose
+
+        box_marker = Marker()
+        box_marker.type = Marker.CUBE
+        box_marker.pose.orientation.w = 1
+
+        box_marker.scale.x = size.x
+        box_marker.scale.y = size.y
+        box_marker.scale.z = size.z
+
+        box_marker.color.r = 0
+        box_marker.color.g = 0
+        box_marker.color.b = 1
+        box_marker.color.a = 0.3
+
+        button_control = InteractiveMarkerControl()
+        button_control.interaction_mode = InteractiveMarkerControl.BUTTON
+        button_control.always_visible = True
+        button_control.markers.append(box_marker)
+        int_marker.controls.append(button_control)
+
+        self.im_server.insert(int_marker)
+        self.im_server.applyChanges()
 
     def callback(self, ros_image: Image, depth_data: Image):
         stamp = ros_image.header.stamp
@@ -175,6 +220,17 @@ class BboxPublisher(object):
             # Find object position
             image_point = np.array([int(center_x), int(center_y), 1])
             obj = np.dot(self._invK, image_point) * z
+
+            ik_pose = Pose()
+            ik_pose.position.x = image_point[0]
+            ik_pose.position.y = image_point[1]
+            ik_pose.position.z = image_point[2]
+            ik_pose.orientation.x = 0
+            ik_pose.orientation.y = 0
+            ik_pose.orientation.z = 0
+            ik_pose.orientation.w = 1
+
+            self.pose_pub.publish(ik_pose)
 
             # Get Colour
             crop = image_np[int(w_min):int(w_max), int(h_min):int(h_max)]
