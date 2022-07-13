@@ -27,6 +27,14 @@ min_acceptable_score = 0.6
 # part of the same object. 
 iou_threshold = 0.3
 
+# Approximate maximum dimension size limits - Up to this length
+# In meters
+size_limits = {
+    "small": 0.3,
+    "medium": 0.8,
+    "large": 10000
+}
+
 
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
@@ -122,29 +130,16 @@ class BboxPublisher(object):
         labels = detections['labels']
         scores = detections['scores']
 
-        detections = []
-        boxes_nms = []
-        scores_nms = []
-        labels_nms = []
-
-        # Approximate maximum dimension size limits - Up to this length
-        # In meters
-        size_limits = {
-            "small": 0.5,
-            "medium": 1,
-            "large": 10000
-        }
-
-        # NOTE: Start of block to be tested ------
         boxes_per_label = defaultdict(list)
         scores_per_label = defaultdict(list)
         detections_per_label = defaultdict(list)
-        # NOTE: End of block to be tested ------
 
-        for i in range(len(boxes)):
-            w_min, h_min, w_max, h_max = box = boxes[i]
-            label = labels[i]
-            score = scores[i]
+        for i, (box, label, score) in enumerate(zip(boxes, labels, scores)):
+            # Only keep predictions which have high scores
+            if score < min_acceptable_score:
+                continue
+
+            w_min, h_min, w_max, h_max = box
 
             # Dimensions of bounding box
             center_x = (w_min + w_max) / 2
@@ -156,27 +151,27 @@ class BboxPublisher(object):
             trim_depth = depth[int(h_min):int(h_max), int(w_min):int(w_max)]
             valid = trim_depth[np.nonzero(trim_depth)]
 
-            # Use depth to get position, and if depth is not valid, discard bounding box
-            if valid.size != 0:
-                z = np.min(valid) * 1e-3
-                top_left_3d = np.array([int(w_min), int(h_min), 0])
-                top_left_camera = np.dot(self._invK, top_left_3d) * z
-                bottom_right_3d = np.array([int(w_max), int(h_max), 0])
-                bottom_right_camera = np.dot(self._invK, bottom_right_3d) * z
-                corner_to_corner = top_left_camera - bottom_right_camera
-                x_size = abs(corner_to_corner[0])
-                y_size = abs(corner_to_corner[1])
-                z_size = (x_size + y_size) / 2.0
-                size = Point(x_size, y_size, z_size)
-
-                # Check if the dimensions of the bounding box make sense
-                if max(x_size, y_size, z_size) > size_limits[self.size_dict.get(label, "large")]:
-                    print('the bounding box is too large for this type of object')
-                    print(max(x_size, y_size, z_size), size_limits[self.size_dict[label]], label)
-                    continue
-            else:
-                size = Point(0.0, 0.0, 0.0)
+            # If depth is not valid, discard bounding box
+            if valid.size == 0:
                 print('no valid depth for object size')
+                continue
+
+            # Use depth to get position
+            z = np.min(valid) * 1e-3
+            top_left_3d = np.array([int(w_min), int(h_min), 0])
+            top_left_camera = np.dot(self._invK, top_left_3d) * z
+            bottom_right_3d = np.array([int(w_max), int(h_max), 0])
+            bottom_right_camera = np.dot(self._invK, bottom_right_3d) * z
+            corner_to_corner = top_left_camera - bottom_right_camera
+            x_size = abs(corner_to_corner[0])
+            y_size = abs(corner_to_corner[1])
+            z_size = (x_size + y_size) / 2.0
+            size = Point(x_size, y_size, z_size)
+
+            # Check if the size of the 3D bounding box makes sense
+            if max(x_size, y_size, z_size) > size_limits[self.size_dict.get(label, "large")]:
+                print('the 3D bounding box is too large for this type of object')
+                print(max(x_size, y_size, z_size), size_limits[self.size_dict[label]], label)
                 continue
 
             # Find object position
@@ -186,7 +181,6 @@ class BboxPublisher(object):
             # Get Colour
             crop = image_np[int(w_min):int(w_max), int(h_min):int(h_max)]
             RGB = np.mean(crop, axis=(0, 1))
-            RGB = (RGB[0], RGB[1], RGB[2])
             colour = ColorNames.findNearestOrionColorName(RGB)
 
             # create label
@@ -198,71 +192,41 @@ class BboxPublisher(object):
             detection = Detection(score_lbl, center_x, center_y, width, height,
                                   size, colour, obj[0], obj[1], obj[2], stamp)
 
-            if score > min_acceptable_score:
-                detections.append(detection)
-                boxes_nms.append(torch.as_tensor(box))
-                scores_nms.append(torch.as_tensor(float(score)))
-                labels_nms.append(torch.as_tensor(float(self.detector.label_map[label])))
-                # NOTE: Start of block to be tested ------
-                # Seperate by label for batched nms later on
-                boxes_per_label[label].append(boxes_nms[-1])
-                scores_per_label[label].append(scores_nms[-1])
-                detections_per_label[label].append(detection)
-                # NOTE: End of block to be tested ------
-            else:
-                continue
+            # Seperate by label for batched nms later on
+            boxes_per_label[label].append(torch.as_tensor(box))
+            scores_per_label[label].append(torch.as_tensor(float(score)))
+            detections_per_label[label].append(detection)
 
         # Perform non-maximum suppression on boxes according to their intersection over union (IoU)
-        # with torch.no_grad():
-        #     if len(boxes_nms) != 0:
-        #         boxes_nms = torch.stack(boxes_nms)
-        #         scores_nms = torch.stack(scores_nms)
-        #         labels_nms = torch.stack(labels_nms)
-            #keep = ops.batched_nms(boxes_nms, scores_nms, labels_nms,iou_threshold)
-            #keep = ops.nms(boxes_nms, scores_nms,iou_threshold)
-            # NOTE: Start of block to be tested ------
-            # A hacky equivalent of batched_nms, since we can't run that in Python 2!
-        keep = {}
-        for label in boxes_per_label:
-            if len(boxes_per_label[label]) != 0:
-                current_boxes_nms = torch.stack(boxes_per_label[label])
-                current_scores_nms = torch.stack(scores_per_label[label])
-                nms_res = ops.nms(current_boxes_nms,
-                                  current_scores_nms, iou_threshold)
-                keep[label] = nms_res
-            # NOTE: End of block to be tested ------
-        """ compatible with old version of keep
-        clean_detections = [detections[i] for i in keep]
-
-        #Draw bounding boxes of cleaned detections onto image
-        for j in keep:
-            top_left = (int(boxes_nms[j][0]), int(boxes_nms[j][1]))
-            bottom_right = (int(boxes_nms[j][2]), int(boxes_nms[j][3]))
-            cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 3)
-            cv2.putText(image, str(labels[j])+': '+str(self.label_dict[int(labels[j])-1])+str(scores_nms[j]), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)	
-        """
-        # NOTE: Start of block to be tested ------
         clean_detections = []
+        clean_bbox_tuples = []
+        for label in boxes_per_label:
+            # if len(boxes_per_label[label]):
+            current_boxes_nms = torch.stack(boxes_per_label[label])
+            current_scores_nms = torch.stack(scores_per_label[label])
+            # keep_indices = ops.batched_nms(boxes_nms, scores_nms, labels_nms, iou_threshold)
+            keep_indices = ops.nms(current_boxes_nms, current_scores_nms, iou_threshold)
+            for i in keep_indices:
+                detection = detections_per_label[label][i]
+                box = boxes_per_label[label][i]
+                score = scores_per_label[label][i].item()
+                clean_detections.append(detection)
+                clean_bbox_tuples.append((box, label, score))
 
         image_bgr = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
-        for label in boxes_per_label:
-            clean_detections += [detections_per_label[label][i] for i in keep[label]]
-            for j in keep[label]:
-                box, score = boxes_per_label[label][j], scores_per_label[label][j]
-                top_left = (int(box[0]), int(box[1]))
-                bottom_right = (int(box[2]), int(box[3]))
-                cv2.rectangle(image_bgr, top_left, bottom_right, (255, 0, 0), 3)
-                cv2.putText(image_bgr, (str(label) + ': ' + str(score)), top_left, cv2.FONT_HERSHEY_COMPLEX, 0.5,
-                            (0, 255, 0), 1)
-        # NOTE: End of block to be tested ------
+
+        for ((w_min, h_min, w_max, h_max), label, score) in clean_bbox_tuples:
+            top_left = (w_min, h_min)
+            bottom_right = (w_max, h_max)
+            cv2.rectangle(image_bgr, top_left, bottom_right, (255, 0, 0), 3)
+            cv2.putText(image_bgr, f"{label}: {score}", top_left, cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 1)
 
         # Publish nodes
         try:
-            h = std_msgs.msg.Header()
-            h.stamp = rospy.Time.now()
-            self.detections_pub.publish(DetectionArray(h, clean_detections))
+            header = std_msgs.msg.Header()
+            header.stamp = rospy.Time.now()
+            self.detections_pub.publish(DetectionArray(header, clean_detections))
             self.image_pub.publish(self.bridge.cv2_to_imgmsg(image_bgr, "bgr8"))
-            # print(clean_detections)
         except CvBridgeError as e:
             print(e)
 
