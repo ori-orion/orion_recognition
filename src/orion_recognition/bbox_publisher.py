@@ -157,7 +157,6 @@ class BboxPublisher(object):
                 z_size = (x_size + y_size)/2.0
                 size = Point(x_size, y_size, z_size)
             else:
-                size = Point(0.0, 0.0, 0.0)
                 print('no valid depth for object size')
                 continue
 
@@ -179,9 +178,12 @@ class BboxPublisher(object):
             # create detection instance
             detection = Detection(score_lbl, center_x, center_y, width, height,
                                   size, colour, obj[0], obj[1], obj[2], stamp)
-            
 
             detections.append(detection)
+            boxes_nms.append(box)
+            scores_nms.append(score)
+            labels_nms.append(label)
+        """
             if score > min_acceptable_score:
             	with torch.no_grad():
                     boxes_nms.append(torch.as_tensor(box))
@@ -217,7 +219,7 @@ class BboxPublisher(object):
                                       current_scores_nms, iou_threshold)
                     keep[label] = nms_res
             # NOTE: End of block to be tested ------
-
+        """
         """ compatible with old version of keep
         clean_detections = [detections[i] for i in keep]
 
@@ -229,15 +231,15 @@ class BboxPublisher(object):
             cv2.putText(image, str(labels[j])+': '+str(self.label_dict[int(labels[j])-1])+str(scores_nms[j]), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)	
         """
         # NOTE: Start of block to be tested ------
-        clean_detections = []
+        clean_detections = detections
 
-        for label in boxes_per_label:
-            clean_detections += [detections_per_label[label][i] for i in keep[label]]
-            for j in keep[label]:
-                top_left = (int(boxes_per_label[label][j][0]), int(boxes_per_label[label][j][1]))
-            bottom_right = (int(boxes_per_label[label][j][2]), int(boxes_per_label[label][j][3]))
+        # for label in boxes_per_label:
+            # clean_detections += [detections_per_label[label][i] for i in keep[label]]
+        for box, score in zip(boxes_nms, scores_nms):
+            top_left = (int(box[0]), int(box[1]))
+            bottom_right = (int(box[2]), int(box[3]))
             cv2.rectangle(image, top_left, bottom_right, (255, 0, 0), 3)
-            cv2.putText(image, (str(label)+': '+str(scores_per_label[label][j])), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
+            cv2.putText(image, (str(label)+': '+str(score)), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
         # NOTE: End of block to be tested ------
         
         # Publish nodes
