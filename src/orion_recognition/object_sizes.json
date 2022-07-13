@@ -179,5 +179,8 @@
     "cleaning_stuff/Dustpans":"medium",
     "cleaning_stuff/Replacement_Heads":"medium",
     "cleaning_stuff/Kitchen_Cleaners":"medium",
-    "person":"large"
+    "person":"large",
+    "chair": "large",
+    "dining table": "large",
+    "backpack": "medium"
 }

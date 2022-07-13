@@ -27,6 +27,7 @@ min_acceptable_score = 0.6
 # part of the same object. 
 iou_threshold = 0.3
 
+
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
         self.detector = orion_recognition.object_detector.ObjectDetector()
@@ -129,7 +130,7 @@ class BboxPublisher(object):
         # Approximate maximum dimension size limits - Up to this length
         # In meters
         size_limits = {
-            "small" : 0.5,
+            "small": 0.5,
             "medium": 1,
             "large": 10000
         }
@@ -168,8 +169,8 @@ class BboxPublisher(object):
                 z_size = (x_size + y_size) / 2.0
                 size = Point(x_size, y_size, z_size)
 
-                #Check if the dimensions of the bounding box make sense
-                if(max(x_size, y_size, z_size)>size_limits[self.size_dict[label]]):
+                # Check if the dimensions of the bounding box make sense
+                if max(x_size, y_size, z_size) > size_limits[self.size_dict.get(label, "large")]:
                     print('the bounding box is too large for this type of object')
                     print(max(x_size, y_size, z_size), size_limits[self.size_dict[label]], label)
                     continue
@@ -253,14 +254,15 @@ class BboxPublisher(object):
 
         image_bgr = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
         # for label in boxes_per_label:
-            # clean_detections += [detections_per_label[label][i] for i in keep[label]]
+        # clean_detections += [detections_per_label[label][i] for i in keep[label]]
         for box, score in zip(boxes_nms, scores_nms):
             top_left = (int(box[0]), int(box[1]))
             bottom_right = (int(box[2]), int(box[3]))
             cv2.rectangle(image_bgr, top_left, bottom_right, (255, 0, 0), 3)
-            cv2.putText(image_bgr, (str(label)+': '+str(score)), top_left, cv2.FONT_HERSHEY_COMPLEX,0.5,(0,255,0),1)
+            cv2.putText(image_bgr, (str(label) + ': ' + str(score)), top_left, cv2.FONT_HERSHEY_COMPLEX, 0.5,
+                        (0, 255, 0), 1)
         # NOTE: End of block to be tested ------
-        
+
         # Publish nodes
         try:
             h = std_msgs.msg.Header()
