@@ -30,7 +30,7 @@ class DetectionTFPublisher(object):
         for detection in detections.detections:
                 object_point = [detection.translation_x, detection.translation_y, detection.translation_z]
                 objects[detection.label.name].append(object_point)
-        print(objects)
+        # print(objects)
         
         for obj in objects:
             for i, pos in enumerate(objects[obj]):
