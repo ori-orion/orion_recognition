@@ -36,9 +36,9 @@ max_size_limits = {
 }
 
 min_size_limits = {
-    "small": 0.01,
-    "medium": 0.3,
-    "large": 0.6
+    "small": 0.04,
+    "medium": 0.2,
+    "large": 0.4
 }
 
 class BboxPublisher(object):
