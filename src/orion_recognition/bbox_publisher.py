@@ -7,6 +7,7 @@ import sys
 import cv2
 import numpy as np
 import math
+import json
 import rospy
 import std_msgs.msg
 from geometry_msgs.msg import Point
@@ -120,6 +121,18 @@ class BboxPublisher(object):
         boxes_nms = []
         scores_nms = []
         labels_nms = []
+
+        #Read the data on how large the objects should be
+        with open("object_sizes.json", "r") as json_file:
+            size_dict = json.load(json_file)
+
+        #Approximate volume(size) limits - Up to this length
+        size_limits = {
+            "small" : 0.3,
+            "medium": 1,
+            "large": 10000
+        }
+
         # NOTE: Start of block to be tested ------
         boxes_per_label = {}
         scores_per_label = {}
@@ -153,6 +166,12 @@ class BboxPublisher(object):
                 y_size = abs(corner_to_corner[1])
                 z_size = (x_size + y_size) / 2.0
                 size = Point(x_size, y_size, z_size)
+
+                #Check if the dimensions of the bounding box make sense
+                if(size_dict[label]):
+                    pass
+                else:
+                    pass
             else:
                 print('no valid depth for object size')
                 continue
