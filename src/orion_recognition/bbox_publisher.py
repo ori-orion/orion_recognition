@@ -248,12 +248,12 @@ class BboxPublisher(object):
         for label in boxes_per_label:
             clean_detections += [detections_per_label[label][i] for i in keep[label]]
             for j in keep[label]:
-                for box, score in zip(boxes_per_label[label][j], scores_per_label[label][j]):
-                    top_left = (int(box[0]), int(box[1]))
-                    bottom_right = (int(box[2]), int(box[3]))
-                    cv2.rectangle(image_bgr, top_left, bottom_right, (255, 0, 0), 3)
-                    cv2.putText(image_bgr, (str(label) + ': ' + str(score)), top_left, cv2.FONT_HERSHEY_COMPLEX, 0.5,
-                                (0, 255, 0), 1)
+                box, score = boxes_per_label[label][j], scores_per_label[label][j]
+                top_left = (int(box[0]), int(box[1]))
+                bottom_right = (int(box[2]), int(box[3]))
+                cv2.rectangle(image_bgr, top_left, bottom_right, (255, 0, 0), 3)
+                cv2.putText(image_bgr, (str(label) + ': ' + str(score)), top_left, cv2.FONT_HERSHEY_COMPLEX, 0.5,
+                            (0, 255, 0), 1)
         # NOTE: End of block to be tested ------
 
         # Publish nodes
