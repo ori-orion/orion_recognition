@@ -56,7 +56,11 @@ class BboxPublisher(object):
 
         #Register a subscriber
         self.subscribers.registerCallback(self.callback)
-    
+
+        # Read the data on how large the objects should be
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "object_sizes.json"), "r") as json_file:
+            self.size_dict = json.load(json_file)
+
     def getMeanDepth_gaussian(self, depth):
         """Ok so we want to mean over the depth image using a gaussian centred at the 
         mid point
@@ -125,10 +129,6 @@ class BboxPublisher(object):
         scores_nms = []
         labels_nms = []
 
-        #Read the data on how large the objects should be
-        with open("object_sizes.json", "r") as json_file:
-            size_dict = json.load(json_file)
-
         # Approximate maximum dimension size limits - Up to this length
         # In meters
         size_limits = {
@@ -172,8 +172,9 @@ class BboxPublisher(object):
                 size = Point(x_size, y_size, z_size)
 
                 #Check if the dimensions of the bounding box make sense
-                if(max(x_size, y_size, z_size)>size_limits[size_dict[label]]):
+                if(max(x_size, y_size, z_size)>size_limits[self.size_dict[label]]):
                     print('the bounding box is too large for this type of object')
+                    print(max(x_size, y_size, z_size), size_limits[self.size_dict[label]], label)
                     continue
             else:
                 size = Point(0.0, 0.0, 0.0)
