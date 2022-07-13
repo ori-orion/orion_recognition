@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 from collections import defaultdict
 
-from interactive_markers.interactive_marker_server import InteractiveMarkerServer
-from visualization_msgs.msg import InteractiveMarker, Marker, InteractiveMarkerControl
-
 import orion_recognition.object_detector
 import message_filters
 from orion_actions.msg import Detection, DetectionArray, Label
@@ -14,7 +11,7 @@ import math
 import json
 import rospy
 import std_msgs.msg
-from geometry_msgs.msg import Point, Pose
+from geometry_msgs.msg import Point
 from sensor_msgs.msg import CameraInfo, Image
 from cv_bridge import CvBridge, CvBridgeError
 from orion_recognition.colornames import ColorNames
@@ -28,16 +25,21 @@ min_acceptable_score = 0.6
 # When performing non-maximum suppression, the intersection-over-union threshold defines
 # the proportion of intersection a bounding box must cover before it is determined to be 
 # part of the same object. 
-iou_threshold = 0.3
+iou_threshold = 0.05
 
 # Approximate maximum dimension size limits - Up to this length
 # In meters
-size_limits = {
-    "small": 0.3,
-    "medium": 0.8,
+max_size_limits = {
+    "small": 0.5,
+    "medium": 1,
     "large": 10000
 }
 
+min_size_limits = {
+    "small": 0.04,
+    "medium": 0.2,
+    "large": 0.4
+}
 
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
@@ -172,7 +174,9 @@ class BboxPublisher(object):
             size = Point(x_size, y_size, z_size)
 
             # Check if the size of the 3D bounding box makes sense
-            if max(x_size, y_size, z_size) > size_limits[self.size_dict.get(label, "large")]:
+            if max(x_size, y_size, z_size) > max_size_limits[self.size_dict.get(label, "large")]:
+                continue
+            elif max(x_size, y_size, z_size) < min_size_limits[self.size_dict.get(label, "small")]:
                 continue
 
             # Find object position
