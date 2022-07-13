@@ -25,8 +25,21 @@ min_acceptable_score = 0.6
 # When performing non-maximum suppression, the intersection-over-union threshold defines
 # the proportion of intersection a bounding box must cover before it is determined to be 
 # part of the same object. 
-iou_threshold = 0.3
+iou_threshold = 0.05
 
+# Approximate maximum dimension size limits - Up to this length
+# In meters
+max_size_limits = {
+    "small": 0.5,
+    "medium": 1,
+    "large": 10000
+}
+
+min_size_limits = {
+    "small": 0.01,
+    "medium": 0.2,
+    "large": 0.5
+}
 
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
@@ -127,14 +140,6 @@ class BboxPublisher(object):
         scores_nms = []
         labels_nms = []
 
-        # Approximate maximum dimension size limits - Up to this length
-        # In meters
-        size_limits = {
-            "small": 0.5,
-            "medium": 1,
-            "large": 10000
-        }
-
         # NOTE: Start of block to be tested ------
         boxes_per_label = defaultdict(list)
         scores_per_label = defaultdict(list)
@@ -170,12 +175,13 @@ class BboxPublisher(object):
                 size = Point(x_size, y_size, z_size)
 
                 # Check if the dimensions of the bounding box make sense
-                if max(x_size, y_size, z_size) > size_limits[self.size_dict.get(label, "large")]:
-                    print('the bounding box is too large for this type of object')
-                    print(max(x_size, y_size, z_size), size_limits[self.size_dict[label]], label)
+                if max(x_size, y_size, z_size) > max_size_limits[self.size_dict.get(label, "large")]:
+                    # print('the bounding box is too large for this type of object')
+                    # print(max(x_size, y_size, z_size), size_limits[self.size_dict[label]], label)
+                    continue
+                elif max(x_size, y_size, z_size) < min_size_limits[self.size_dict.get(label, "small")]:
                     continue
             else:
-                size = Point(0.0, 0.0, 0.0)
                 print('no valid depth for object size')
                 continue
 
