@@ -56,6 +56,10 @@ class BboxPublisher(object):
         # Register a subscriber
         self.subscribers.registerCallback(self.callback)
 
+        # Read the data on how large the objects should be
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "object_sizes.json"), "r") as json_file:
+            self.size_dict = json.load(json_file)
+
     # def getMeanDepth_gaussian(self, depth):
     #     """Ok so we want to mean over the depth image using a gaussian centred at the
     #     mid point
