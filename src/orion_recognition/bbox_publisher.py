@@ -6,7 +6,8 @@ from orion_actions.msg import Detection, DetectionArray, Label
 import sys
 import cv2
 import numpy as np
-import math;
+import math
+import json
 import rospy
 import std_msgs.msg
 from geometry_msgs.msg import Point
@@ -30,7 +31,7 @@ class BboxPublisher(object):
         self.detector = orion_recognition.object_detector.ObjectDetector()
         self.detector.eval()
 
-  
+
         rospack = rospkg.RosPack()
 
 
@@ -123,6 +124,19 @@ class BboxPublisher(object):
         boxes_nms = []
         scores_nms = []
         labels_nms = []
+
+        #Read the data on how large the objects should be
+        with open("object_sizes.json", "r") as json_file:
+            size_dict = json.load(json_file)
+
+        # Approximate maximum dimension size limits - Up to this length
+        # In meters
+        size_limits = {
+            "small" : 0.5,
+            "medium": 1,
+            "large": 10000
+        }
+
         # NOTE: Start of block to be tested ------
         boxes_per_label = {}
         scores_per_label = {}
@@ -156,7 +170,13 @@ class BboxPublisher(object):
                 y_size = abs(corner_to_corner[1])
                 z_size = (x_size + y_size)/2.0
                 size = Point(x_size, y_size, z_size)
+
+                #Check if the dimensions of the bounding box make sense
+                if(max(x_size, y_size, z_size)>size_limits[size_dict[label]]):
+                    print('the bounding box is too large for this type of object')
+                    continue
             else:
+                size = Point(0.0, 0.0, 0.0)
                 print('no valid depth for object size')
                 continue
 
@@ -178,6 +198,7 @@ class BboxPublisher(object):
             # create detection instance
             detection = Detection(score_lbl, center_x, center_y, width, height,
                                   size, colour, obj[0], obj[1], obj[2], stamp)
+            
 
             detections.append(detection)
             boxes_nms.append(box)
