@@ -170,8 +170,6 @@ class BboxPublisher(object):
 
             # Check if the size of the 3D bounding box makes sense
             if max(x_size, y_size, z_size) > size_limits[self.size_dict.get(label, "large")]:
-                print('the 3D bounding box is too large for this type of object')
-                print(max(x_size, y_size, z_size), size_limits[self.size_dict[label]], label)
                 continue
 
             # Find object position
@@ -216,8 +214,8 @@ class BboxPublisher(object):
         image_bgr = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
 
         for ((w_min, h_min, w_max, h_max), label, score) in clean_bbox_tuples:
-            top_left = (w_min, h_min)
-            bottom_right = (w_max, h_max)
+            top_left = (int(w_min), int(h_min))
+            bottom_right = (int(w_max), int(h_max))
             cv2.rectangle(image_bgr, top_left, bottom_right, (255, 0, 0), 3)
             cv2.putText(image_bgr, f"{label}: {score}", top_left, cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 1)
 
