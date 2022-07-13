@@ -126,9 +126,10 @@ class BboxPublisher(object):
         with open("object_sizes.json", "r") as json_file:
             size_dict = json.load(json_file)
 
-        #Approximate volume(size) limits - Up to this length
+        # Approximate maximum dimension size limits - Up to this length
+        # In meters
         size_limits = {
-            "small" : 0.3,
+            "small" : 0.5,
             "medium": 1,
             "large": 10000
         }
@@ -168,10 +169,9 @@ class BboxPublisher(object):
                 size = Point(x_size, y_size, z_size)
 
                 #Check if the dimensions of the bounding box make sense
-                if(size_dict[label]):
-                    pass
-                else:
-                    pass
+                if(max(x_size, y_size, z_size)>size_limits[size_dict[label]]):
+                    print('the bounding box is too large for this type of object')
+                    continue
             else:
                 print('no valid depth for object size')
                 continue

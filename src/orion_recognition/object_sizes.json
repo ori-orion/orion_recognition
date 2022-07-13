@@ -178,5 +178,6 @@
     "cleaning_stuff/Nitrile_Gloves":"small",
     "cleaning_stuff/Dustpans":"medium",
     "cleaning_stuff/Replacement_Heads":"medium",
-    "cleaning_stuff/Kitchen_Cleaners":"medium"
+    "cleaning_stuff/Kitchen_Cleaners":"medium",
+    "person":"large"
 }
