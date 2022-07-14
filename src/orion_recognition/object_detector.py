@@ -2,13 +2,12 @@
 # coding: utf-8
 
 import numpy as np
-import os, psutil, sys, time
+import os
 import torch
 import torchvision.models as models
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import cv2
-import gc
 
 from einops import rearrange
 
@@ -16,16 +15,21 @@ from orion_recognition.bbox_utils import non_max_supp
 from orion_recognition.object_classifer import ObjectClassifer
 from PIL import Image
 
-classifer = True
+use_classifier = True
 buffer = 20
 
 PERSON_LABEL = 1
 
 min_acceptable_score = 0.0
 
+tmp_image_dir = "tmp.jpg"
+
 
 class ObjectDetector(torch.nn.Module):
     def __init__(self, algorithm="yolo"):
+        """
+        :param algorithm: 'yolo' or 'rcnn' ('yolo' recommended)
+        """
         super(ObjectDetector, self).__init__()
         print("Is cuda available? {}".format(torch.cuda.is_available()))
         print("cuda memory allocated: {}".format(torch.cuda.memory_allocated()))  # does not cause seg fault
@@ -39,7 +43,7 @@ class ObjectDetector(torch.nn.Module):
             raise NotImplementedError
 
         self.model.to(self.device)
-        if classifer:
+        if use_classifier:
             self.classfier = ObjectClassifer(self.device)
             self.classfier.eval()
 
@@ -61,14 +65,18 @@ class ObjectDetector(torch.nn.Module):
         self.algorithm = algorithm
 
     def forward(self, img):
+        """
+        :param img: Requires RGB image (Open-CV and ROS images are BGR by default so be careful!)
+        :return: bbox results (dict)
+        """
         assert len(img.size()) == 3, "Assumes a single image input"
 
         C, H, W = img.size()
         img = torch.as_tensor(img, device=self.device, dtype=torch.float)
 
         if self.algorithm == "yolo":
-            Image.fromarray(np.uint8(rearrange(img.cpu().numpy(), "c h w -> h w c")*255)).save("tmp.jpg")
-            results = self.model("tmp.jpg")
+            Image.fromarray(np.uint8(rearrange(img.cpu().numpy(), "c h w -> h w c")*255)).save(tmp_image_dir)
+            results = self.model(tmp_image_dir)
             bbox_iterator = results.pandas().xyxy[0].iterrows()
         elif self.algorithm == "rcnn":
             results = self.model(img.unsqueeze(0))[0]
