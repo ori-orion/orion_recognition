@@ -20,6 +20,8 @@ buffer = 20
 
 PERSON_LABEL = 1
 
+min_acceptable_score = 0.6
+
 
 class ObjectDetector(torch.nn.Module):
     def __init__(self):
@@ -68,6 +70,8 @@ class ObjectDetector(torch.nn.Module):
             new_scores = []
             new_boxes = []
             for box, label, score in zip(y['boxes'], y['labels'], y['scores']):
+                if score < min_acceptable_score:
+                    continue
                 w_min, h_min, w_max, h_max = box
                 # print("box corners: {}, x-size: {}, y-size: {}, label: {}".format(box, box[2]-box[0], box[3]-box[1], label))
                 min_dim_size = 25
@@ -81,6 +85,8 @@ class ObjectDetector(torch.nn.Module):
                     new_label, new_score = self.classfier(
                         x[:, max(0, int(h_min) - buffer):min(int(h_max) + buffer, H),
                         max(0, int(w_min - buffer)):min(int(w_max) + buffer, W)])
+                    if new_score < min_acceptable_score:
+                        continue
                     new_labels.append(self.convert_label_index_to_string(new_label, coco=False))
                     new_scores.append(new_score)
                     new_boxes.append(box)
@@ -124,19 +130,11 @@ class ObjectDetector(torch.nn.Module):
             if not rval:
                 break
             image_tensor = transforms.ToTensor()(frame)
-
-            bbox_tuples = []
-
             detections = self(image_tensor)
-            for box, label, score in zip(detections['boxes'], detections['labels'], detections['scores']):
-                bbox_tuples.append((box, label, score, None))
-
-            clean_bbox_tuples = non_max_supp(bbox_tuples)
-
-            for ((x_min, y_min, x_max, y_max), label, score, _) in clean_bbox_tuples:
-                cv2.rectangle(frame, (int(x_min), int(y_min)), (int(x_max), int(y_max)),
+            for detection, label in zip(detections['boxes'], detections['labels']):
+                cv2.rectangle(frame, (int(detection[0]), int(detection[1])), (int(detection[2]), int(detection[3])),
                               (255, 0, 0), 3)
-                cv2.putText(frame, str(label), (int(x_min), int(y_min)), cv2.FONT_HERSHEY_COMPLEX, 0.5,
+                cv2.putText(frame, str(label), (int(detection[0]), int(detection[1])), cv2.FONT_HERSHEY_COMPLEX, 0.5,
                             (0, 255, 0), 1)
             cv2.imshow("preview", frame)
             key = cv2.waitKey(20)

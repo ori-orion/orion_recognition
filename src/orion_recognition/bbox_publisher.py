@@ -22,8 +22,6 @@ import rospkg
 import torch
 import os
 
-min_acceptable_score = 0.9
-
 # Approximate maximum dimension size limits - Up to this length
 # In meters
 max_size_limits = {
@@ -136,9 +134,6 @@ class BboxPublisher(object):
         bbox_manager = BBoxManager()
 
         for i, (box, label, score) in enumerate(zip(boxes, labels, scores)):
-            if score < min_acceptable_score:
-                continue
-
             x_min, y_min, x_max, y_max = box
 
             # Dimensions of bounding box
