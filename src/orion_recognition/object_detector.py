@@ -20,7 +20,7 @@ buffer = 20
 
 PERSON_LABEL = 1
 
-min_acceptable_score = 0.6
+min_acceptable_score = 0.4
 
 
 class ObjectDetector(torch.nn.Module):
