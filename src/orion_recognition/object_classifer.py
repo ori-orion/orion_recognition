@@ -10,7 +10,7 @@ import torchvision.transforms as transforms
 import cv2
 import gc
 from PIL import Image
-from orion_recognition.utils import load_finetuned_resnet
+from orion_recognition.object_detection.utils import load_finetuned_resnet
 import rospkg
 
 

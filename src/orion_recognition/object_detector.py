@@ -9,6 +9,8 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import cv2
 import gc
+
+from orion_recognition.bbox_utils import non_max_supp
 from orion_recognition.object_classifer import ObjectClassifer
 from PIL import Image
 import rospkg
@@ -122,11 +124,19 @@ class ObjectDetector(torch.nn.Module):
             if not rval:
                 break
             image_tensor = transforms.ToTensor()(frame)
+
+            bbox_tuples = []
+
             detections = self(image_tensor)
-            for detection, label in zip(detections['boxes'], detections['labels']):
-                cv2.rectangle(frame, (int(detection[0]), int(detection[1])), (int(detection[2]), int(detection[3])),
+            for box, label, score in zip(detections['boxes'], detections['labels'], detections['scores']):
+                bbox_tuples.append((box, label, score, None))
+
+            clean_bbox_tuples = non_max_supp(bbox_tuples)
+            for ((x_min, y_min, x_max, y_max), label, score, detection) in clean_bbox_tuples:
+
+                cv2.rectangle(frame, (int(x_min), int(y_min)), (int(x_max), int(y_max)),
                               (255, 0, 0), 3)
-                cv2.putText(frame, str(label), (int(detection[0]), int(detection[1])), cv2.FONT_HERSHEY_COMPLEX, 0.5,
+                cv2.putText(frame, str(label), (int(x_min), int(y_min)), cv2.FONT_HERSHEY_COMPLEX, 0.5,
                             (0, 255, 0), 1)
             cv2.imshow("preview", frame)
             key = cv2.waitKey(20)

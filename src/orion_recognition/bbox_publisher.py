@@ -14,18 +14,15 @@ import std_msgs.msg
 from geometry_msgs.msg import Point
 from sensor_msgs.msg import CameraInfo, Image
 from cv_bridge import CvBridge, CvBridgeError
+
+from orion_recognition.bbox_utils import BBoxManager
 from orion_recognition.colornames import ColorNames
 import torchvision.transforms as transforms
-import torchvision.ops as ops
 import rospkg
 import torch
 import os
 
-min_acceptable_score = 0.6
-# When performing non-maximum suppression, the intersection-over-union threshold defines
-# the proportion of intersection a bounding box must cover before it is determined to be 
-# part of the same object. 
-iou_threshold = 0.05
+min_acceptable_score = 0.9
 
 # Approximate maximum dimension size limits - Up to this length
 # In meters
@@ -40,6 +37,7 @@ min_size_limits = {
     "medium": 0.2,
     "large": 0.4
 }
+
 
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
@@ -135,12 +133,9 @@ class BboxPublisher(object):
         labels = detections['labels']
         scores = detections['scores']
 
-        boxes_per_label = defaultdict(list)
-        scores_per_label = defaultdict(list)
-        detections_per_label = defaultdict(list)
+        bbox_manager = BBoxManager()
 
         for i, (box, label, score) in enumerate(zip(boxes, labels, scores)):
-            # Only keep predictions which have high scores
             if score < min_acceptable_score:
                 continue
 
@@ -197,30 +192,15 @@ class BboxPublisher(object):
             detection = Detection(score_lbl, center_x, center_y, width, height,
                                   size, colour, obj[0], obj[1], obj[2], stamp)
 
-            # Seperate by label for batched nms later on
-            boxes_per_label[label].append(torch.as_tensor(box))
-            scores_per_label[label].append(torch.as_tensor(float(score)))
-            detections_per_label[label].append(detection)
+            bbox_manager.add_bbox(box, label, score, detection)
 
-        # Perform non-maximum suppression on boxes according to their intersection over union (IoU)
+        clean_bbox_tuples = bbox_manager.non_max_supp()
         clean_detections = []
-        clean_bbox_tuples = []
-        for label in boxes_per_label:
-            # if len(boxes_per_label[label]):
-            current_boxes_nms = torch.stack(boxes_per_label[label])
-            current_scores_nms = torch.stack(scores_per_label[label])
-            # keep_indices = ops.batched_nms(boxes_nms, scores_nms, labels_nms, iou_threshold)
-            keep_indices = ops.nms(current_boxes_nms, current_scores_nms, iou_threshold)
-            for i in keep_indices:
-                detection = detections_per_label[label][i]
-                box = boxes_per_label[label][i]
-                score = scores_per_label[label][i].item()
-                clean_detections.append(detection)
-                clean_bbox_tuples.append((box, label, score))
 
         image_bgr = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
 
-        for ((x_min, y_min, x_max, y_max), label, score) in clean_bbox_tuples:
+        for ((x_min, y_min, x_max, y_max), label, score, detection) in clean_bbox_tuples:
+            clean_detections.append(detection)
             top_left = (int(x_min), int(y_min))
             bottom_right = (int(x_max), int(y_max))
             cv2.rectangle(image_bgr, top_left, bottom_right, (255, 0, 0), 3)
