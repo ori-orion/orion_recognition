@@ -10,17 +10,18 @@ import torchvision.transforms as transforms
 import cv2
 import gc
 
+from einops import rearrange
+
 from orion_recognition.bbox_utils import non_max_supp
 from orion_recognition.object_classifer import ObjectClassifer
 from PIL import Image
-import rospkg
 
 classifer = True
 buffer = 20
 
 PERSON_LABEL = 1
 
-min_acceptable_score = 0.4
+min_acceptable_score = 0.0
 
 
 class ObjectDetector(torch.nn.Module):
@@ -30,20 +31,20 @@ class ObjectDetector(torch.nn.Module):
         print("cuda memory allocated: {}".format(torch.cuda.memory_allocated()))  # does not cause seg fault
         # print(torch.cuda.memory_allocated(0)) # causes seg fault
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.model = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
+        # self.model = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
+        self.model = torch.hub.load('ultralytics/yolov5', 'yolov5l', pretrained=True)
+
         self.model.to(self.device)
         if classifer:
-            self.classfier = ObjectClassifer()
+            self.classfier = ObjectClassifer(self.device)
             self.classfier.eval()
 
-        rospack = rospkg.RosPack()
-        pkg_path = rospack.get_path('orion_recognition')
-        labels_path = pkg_path + "/src/orion_recognition"
+        labels_path = os.path.dirname(os.path.abspath(__file__))
 
         self.coco_labels = []
-        with open(labels_path + '/coco_labels2017.txt', 'r') as in_file:
+        with open(os.path.join(labels_path, 'coco_labels2017.txt'), 'r') as in_file:
             self.coco_labels = in_file.read().strip().split("\n")
-        with open(labels_path + '/labels_short.txt', 'r') as in_file:
+        with open(os.path.join(labels_path, 'labels_short.txt'), 'r') as in_file:
             self.imagenet_labels = in_file.read().strip().split("\n")
 
         print(self.coco_labels)
@@ -57,47 +58,48 @@ class ObjectDetector(torch.nn.Module):
         assert len(img.size()) == 3, "Assumes a single image input"
         C, H, W = img.size()
 
+        img = img.cpu().numpy()
         x = torch.as_tensor(img, device=self.device, dtype=torch.float)
-        # print("forward started with img size: {}".format(x.shape))
-        y = self.model(x.unsqueeze(0))[0]
 
-        y = {k: v.cpu().detach().numpy() for k, v in y.items()}
-        # print("Detected COCO objects: {}".format([self.convert_label_index_to_string(l,coco=True) for l in y[0]['labels']]))
+        results = self.model("tmp.jpg")
+        img = rearrange(img, "c h w -> h w c")
+        Image.fromarray(np.uint8(img*255)).save("tmp.jpg")
 
-        if classifer:
-            y_new = {}
-            new_labels = []
-            new_scores = []
-            new_boxes = []
-            for box, label, score in zip(y['boxes'], y['labels'], y['scores']):
-                if score < min_acceptable_score:
+        bbox_results = {}
+        labels = []
+        scores = []
+        bboxes = []
+        # y = {k: v.cpu().detach().numpy() for k, v in results.items()}
+        # for box, label, score in zip(y['boxes'], y['labels'], y['scores']):
+        #     w_min, h_min, w_max, h_max = box
+        for i, result in results.pandas().xyxy[0].iterrows():
+            w_min, h_min, w_max, h_max, score, class_index, label = result
+            box = w_min, h_min, w_max, h_max
+            if score < min_acceptable_score:
+                continue
+
+            min_dim_size = 25
+            if (h_max - h_min < min_dim_size) or (w_max - w_min < min_dim_size):
+                # dont take box that is too small
+                continue
+            labels.append(label)
+            scores.append(score)
+            bboxes.append(box)
+            if label != "person" and self.classfier:
+                new_label, new_score = self.classfier(
+                    x[:, max(0, int(h_min) - buffer):min(int(h_max) + buffer, H),
+                    max(0, int(w_min - buffer)):min(int(w_max) + buffer, W)])
+                if new_score < min_acceptable_score:
                     continue
-                w_min, h_min, w_max, h_max = box
-                # print("box corners: {}, x-size: {}, y-size: {}, label: {}".format(box, box[2]-box[0], box[3]-box[1], label))
-                min_dim_size = 25
-                if (h_max - h_min < min_dim_size) or (w_max - w_min < min_dim_size):
-                    # dont take box that is too small
-                    continue
-                new_labels.append(self.convert_label_index_to_string(label))
-                new_scores.append(score)
-                new_boxes.append(box)
-                if label != PERSON_LABEL:
-                    new_label, new_score = self.classfier(
-                        x[:, max(0, int(h_min) - buffer):min(int(h_max) + buffer, H),
-                        max(0, int(w_min - buffer)):min(int(w_max) + buffer, W)])
-                    if new_score < min_acceptable_score:
-                        continue
-                    new_labels.append(self.convert_label_index_to_string(new_label, coco=False))
-                    new_scores.append(new_score)
-                    new_boxes.append(box)
-            y_new['boxes'] = new_boxes
-            y_new['labels'] = new_labels
-            y_new['scores'] = new_scores
-            print("Detected objects (COCO + RoboCup): {}\n".format(y_new['labels']))
-            return y_new
-        else:
-            print("Detected objects (COCO only): {}\n".format(y['labels']))
-            return y
+                labels.append(label)
+                scores.append(new_score)
+                bboxes.append(box)
+        bbox_results['boxes'] = bboxes
+        bbox_results['labels'] = labels
+        bbox_results['scores'] = scores
+
+        print(f"Detected objects (COCO{' + RoboCup' if self.classfier else ''}): {bbox_results['labels']}")
+        return bbox_results
 
     def convert_label_index_to_string(self, index, coco=True):
         if coco:
@@ -130,11 +132,19 @@ class ObjectDetector(torch.nn.Module):
             if not rval:
                 break
             image_tensor = transforms.ToTensor()(frame)
+
+            bbox_tuples = []
+
             detections = self(image_tensor)
-            for detection, label in zip(detections['boxes'], detections['labels']):
-                cv2.rectangle(frame, (int(detection[0]), int(detection[1])), (int(detection[2]), int(detection[3])),
+            for box, label, score in zip(detections['boxes'], detections['labels'], detections['scores']):
+                bbox_tuples.append((box, label, score, None))
+
+            clean_bbox_tuples = non_max_supp(bbox_tuples)
+            for ((x_min, y_min, x_max, y_max), label, score, detection) in clean_bbox_tuples:
+
+                cv2.rectangle(frame, (int(x_min), int(y_min)), (int(x_max), int(y_max)),
                               (255, 0, 0), 3)
-                cv2.putText(frame, str(label), (int(detection[0]), int(detection[1])), cv2.FONT_HERSHEY_COMPLEX, 0.5,
+                cv2.putText(frame, str(label), (int(x_min), int(y_min)), cv2.FONT_HERSHEY_COMPLEX, 0.5,
                             (0, 255, 0), 1)
             cv2.imshow("preview", frame)
             key = cv2.waitKey(20)

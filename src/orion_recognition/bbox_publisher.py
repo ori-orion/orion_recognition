@@ -15,7 +15,7 @@ from geometry_msgs.msg import Point
 from sensor_msgs.msg import CameraInfo, Image
 from cv_bridge import CvBridge, CvBridgeError
 
-from orion_recognition.bbox_utils import BBoxManager
+from orion_recognition.bbox_utils import BBoxManager, non_max_supp
 from orion_recognition.colornames import ColorNames
 import torchvision.transforms as transforms
 import rospkg
@@ -131,7 +131,7 @@ class BboxPublisher(object):
         labels = detections['labels']
         scores = detections['scores']
 
-        bbox_manager = BBoxManager()
+        bbox_tuples = []
 
         for i, (box, label, score) in enumerate(zip(boxes, labels, scores)):
             x_min, y_min, x_max, y_max = box
@@ -186,10 +186,9 @@ class BboxPublisher(object):
             # create detection instance
             detection = Detection(score_lbl, center_x, center_y, width, height,
                                   size, colour, obj[0], obj[1], obj[2], stamp)
+            bbox_tuples.append((box, label, score, detection))
 
-            bbox_manager.add_bbox(box, label, score, detection)
-
-        clean_bbox_tuples = bbox_manager.non_max_supp()
+        clean_bbox_tuples = non_max_supp(bbox_tuples)
         clean_detections = []
 
         image_bgr = self.bridge.imgmsg_to_cv2(ros_image, "bgr8")
