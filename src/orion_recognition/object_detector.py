@@ -56,14 +56,13 @@ class ObjectDetector(torch.nn.Module):
 
     def forward(self, img):
         assert len(img.size()) == 3, "Assumes a single image input"
-        C, H, W = img.size()
 
+        C, H, W = img.size()
         img = img.cpu().numpy()
         x = torch.as_tensor(img, device=self.device, dtype=torch.float)
 
+        Image.fromarray(np.uint8(rearrange(img, "c h w -> h w c")*255)).save("tmp.jpg")
         results = self.model("tmp.jpg")
-        img = rearrange(img, "c h w -> h w c")
-        Image.fromarray(np.uint8(img*255)).save("tmp.jpg")
 
         bbox_results = {
             'boxes': [],
@@ -92,8 +91,8 @@ class ObjectDetector(torch.nn.Module):
                     max(0, int(w_min - buffer)):min(int(w_max) + buffer, W)])
                 if new_score < min_acceptable_score:
                     continue
-                bbox_results['labels'].append(label)
-                bbox_results['scores'].append(score)
+                bbox_results['labels'].append(self.convert_label_index_to_string(new_label, coco=False))
+                bbox_results['scores'].append(new_score)
                 bbox_results['boxes'].append(box)
 
         print(f"Detected objects (COCO{' + RoboCup' if self.classfier else ''}): {bbox_results['labels']}")
@@ -103,7 +102,7 @@ class ObjectDetector(torch.nn.Module):
         if coco:
             return self.coco_labels[index - 1]
         else:
-            return self.imagenet_labels[index - 1]
+            return self.imagenet_labels[index].split("/")[-1]
 
     def detect_random(self):
         self.model.eval()
