@@ -132,8 +132,8 @@ class ObjectDetector(torch.nn.Module):
                 bbox_tuples.append((box, label, score, None))
 
             clean_bbox_tuples = non_max_supp(bbox_tuples)
-            for ((x_min, y_min, x_max, y_max), label, score, detection) in clean_bbox_tuples:
 
+            for ((x_min, y_min, x_max, y_max), label, score, _) in clean_bbox_tuples:
                 cv2.rectangle(frame, (int(x_min), int(y_min)), (int(x_max), int(y_max)),
                               (255, 0, 0), 3)
                 cv2.putText(frame, str(label), (int(x_min), int(y_min)), cv2.FONT_HERSHEY_COMPLEX, 0.5,
