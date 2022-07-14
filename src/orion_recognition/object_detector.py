@@ -25,14 +25,18 @@ min_acceptable_score = 0.0
 
 
 class ObjectDetector(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, algorithm="yolo"):
         super(ObjectDetector, self).__init__()
         print("Is cuda available? {}".format(torch.cuda.is_available()))
         print("cuda memory allocated: {}".format(torch.cuda.memory_allocated()))  # does not cause seg fault
         # print(torch.cuda.memory_allocated(0)) # causes seg fault
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        # self.model = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
-        self.model = torch.hub.load('ultralytics/yolov5', 'yolov5l', pretrained=True)
+        if algorithm == "yolo":
+            self.model = torch.hub.load('ultralytics/yolov5', 'yolov5l', pretrained=True)
+        elif algorithm == "rcnn":
+            self.model = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
+        else:
+            raise NotImplementedError
 
         self.model.to(self.device)
         if classifer:
@@ -45,24 +49,34 @@ class ObjectDetector(torch.nn.Module):
         with open(os.path.join(labels_path, 'coco_labels2017.txt'), 'r') as in_file:
             self.coco_labels = in_file.read().strip().split("\n")
         with open(os.path.join(labels_path, 'labels_short.txt'), 'r') as in_file:
-            self.imagenet_labels = in_file.read().strip().split("\n")
+            self.robocup_labels = in_file.read().strip().split("\n")
 
         print(self.coco_labels)
 
-        self.all_labels = self.coco_labels + self.imagenet_labels
+        self.all_labels = self.coco_labels + self.robocup_labels
         self.label_map = {}
         for i in range(len(self.all_labels)):
             self.label_map[self.all_labels[i]] = i + 1
+
+        self.algorithm = algorithm
 
     def forward(self, img):
         assert len(img.size()) == 3, "Assumes a single image input"
 
         C, H, W = img.size()
-        img = img.cpu().numpy()
-        x = torch.as_tensor(img, device=self.device, dtype=torch.float)
+        img = torch.as_tensor(img, device=self.device, dtype=torch.float)
 
-        Image.fromarray(np.uint8(rearrange(img, "c h w -> h w c")*255)).save("tmp.jpg")
-        results = self.model("tmp.jpg")
+        if self.algorithm == "yolo":
+            Image.fromarray(np.uint8(rearrange(img.cpu().numpy(), "c h w -> h w c")*255)).save("tmp.jpg")
+            results = self.model("tmp.jpg")
+            bbox_iterator = results.pandas().xyxy[0].iterrows()
+        elif self.algorithm == "rcnn":
+            results = self.model(img.unsqueeze(0))[0]
+            results = {k: v.cpu().detach().numpy() for k, v in results.items()}
+            bbox_iterator = enumerate((*box, score, label, self.convert_label_index_to_string(label - 1, dataset="coco"))
+                                      for box, label, score in zip(results['boxes'], results['labels'], results['scores']))
+        else:
+            raise NotImplementedError
 
         bbox_results = {
             'boxes': [],
@@ -72,7 +86,7 @@ class ObjectDetector(torch.nn.Module):
         # y = {k: v.cpu().detach().numpy() for k, v in results.items()}
         # for box, label, score in zip(y['boxes'], y['labels'], y['scores']):
         #     w_min, h_min, w_max, h_max = box
-        for i, result in results.pandas().xyxy[0].iterrows():
+        for i, result in bbox_iterator:
             w_min, h_min, w_max, h_max, score, class_index, label = result
             box = w_min, h_min, w_max, h_max
             if score < min_acceptable_score:
@@ -85,24 +99,27 @@ class ObjectDetector(torch.nn.Module):
             bbox_results['labels'].append(label)
             bbox_results['scores'].append(score)
             bbox_results['boxes'].append(box)
+
             if label != "person" and self.classfier:
-                new_label, new_score = self.classfier(
-                    x[:, max(0, int(h_min) - buffer):min(int(h_max) + buffer, H),
+                new_class_index, new_score = self.classfier(
+                    img[:, max(0, int(h_min) - buffer):min(int(h_max) + buffer, H),
                     max(0, int(w_min - buffer)):min(int(w_max) + buffer, W)])
                 if new_score < min_acceptable_score:
                     continue
-                bbox_results['labels'].append(self.convert_label_index_to_string(new_label, coco=False))
+                bbox_results['labels'].append(self.convert_label_index_to_string(new_class_index, dataset="robocup"))
                 bbox_results['scores'].append(new_score)
                 bbox_results['boxes'].append(box)
 
         print(f"Detected objects (COCO{' + RoboCup' if self.classfier else ''}): {bbox_results['labels']}")
         return bbox_results
 
-    def convert_label_index_to_string(self, index, coco=True):
-        if coco:
-            return self.coco_labels[index - 1]
+    def convert_label_index_to_string(self, index, dataset="coco"):
+        if dataset == "coco":
+            return self.coco_labels[index]
+        elif dataset == "robocup":
+            return self.robocup_labels[index].split("/")[-1]
         else:
-            return self.imagenet_labels[index].split("/")[-1]
+            raise NotImplementedError
 
     def detect_random(self):
         self.model.eval()
