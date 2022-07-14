@@ -65,10 +65,11 @@ class ObjectDetector(torch.nn.Module):
         img = rearrange(img, "c h w -> h w c")
         Image.fromarray(np.uint8(img*255)).save("tmp.jpg")
 
-        bbox_results = {}
-        labels = []
-        scores = []
-        bboxes = []
+        bbox_results = {
+            'boxes': [],
+            'scores': [],
+            'labels': []
+        }
         # y = {k: v.cpu().detach().numpy() for k, v in results.items()}
         # for box, label, score in zip(y['boxes'], y['labels'], y['scores']):
         #     w_min, h_min, w_max, h_max = box
@@ -82,21 +83,18 @@ class ObjectDetector(torch.nn.Module):
             if (h_max - h_min < min_dim_size) or (w_max - w_min < min_dim_size):
                 # dont take box that is too small
                 continue
-            labels.append(label)
-            scores.append(score)
-            bboxes.append(box)
+            bbox_results['labels'].append(label)
+            bbox_results['scores'].append(score)
+            bbox_results['boxes'].append(box)
             if label != "person" and self.classfier:
                 new_label, new_score = self.classfier(
                     x[:, max(0, int(h_min) - buffer):min(int(h_max) + buffer, H),
                     max(0, int(w_min - buffer)):min(int(w_max) + buffer, W)])
                 if new_score < min_acceptable_score:
                     continue
-                labels.append(label)
-                scores.append(new_score)
-                bboxes.append(box)
-        bbox_results['boxes'] = bboxes
-        bbox_results['labels'] = labels
-        bbox_results['scores'] = scores
+                bbox_results['labels'].append(label)
+                bbox_results['scores'].append(score)
+                bbox_results['boxes'].append(box)
 
         print(f"Detected objects (COCO{' + RoboCup' if self.classfier else ''}): {bbox_results['labels']}")
         return bbox_results
