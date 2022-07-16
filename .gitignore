@@ -141,3 +141,5 @@ cython_debug/
 
 yolov5*.pt
 tmp.jpg
+data/*
+!data/.gitkeep

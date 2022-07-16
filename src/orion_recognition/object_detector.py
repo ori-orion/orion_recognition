@@ -15,6 +15,8 @@ from orion_recognition.bbox_utils import non_max_supp
 from orion_recognition.object_classifer import ObjectClassifer
 from PIL import Image
 
+from orion_recognition.utils import data_path
+
 use_classifier = True
 buffer = 20
 
@@ -23,6 +25,8 @@ PERSON_LABEL = 1
 min_acceptable_score = 0.0
 
 tmp_image_dir = "tmp.jpg"
+
+torch.hub.set_dir(data_path)
 
 
 class ObjectDetector(torch.nn.Module):
@@ -36,7 +40,13 @@ class ObjectDetector(torch.nn.Module):
         # print(torch.cuda.memory_allocated(0)) # causes seg fault
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         if algorithm == "yolo":
-            self.model = torch.hub.load('ultralytics/yolov5', 'yolov5l', pretrained=True)
+            try:
+                self.model = torch.hub.load('ultralytics/yolov5', 'yolov5l', force_reload=True,
+                                            pretrained=True)  # needs internet
+            except:
+                self.model = torch.hub.load(os.path.join(data_path, "ultralytics_yolov5_master"),
+                                            'custom', source="local",
+                                            path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "yolov5l.pt"))
         elif algorithm == "rcnn":
             self.model = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
         else:
@@ -75,14 +85,15 @@ class ObjectDetector(torch.nn.Module):
         img = torch.as_tensor(img, device=self.device, dtype=torch.float)
 
         if self.algorithm == "yolo":
-            Image.fromarray(np.uint8(rearrange(img.cpu().numpy(), "c h w -> h w c")*255)).save(tmp_image_dir)
+            Image.fromarray(np.uint8(rearrange(img.cpu().numpy(), "c h w -> h w c") * 255)).save(tmp_image_dir)
             results = self.model(tmp_image_dir)
             bbox_iterator = results.pandas().xyxy[0].iterrows()
         elif self.algorithm == "rcnn":
             results = self.model(img.unsqueeze(0))[0]
             results = {k: v.cpu().detach().numpy() for k, v in results.items()}
-            bbox_iterator = enumerate((*box, score, label, self.convert_label_index_to_string(label - 1, dataset="coco"))
-                                      for box, label, score in zip(results['boxes'], results['labels'], results['scores']))
+            bbox_iterator = enumerate(
+                (*box, score, label, self.convert_label_index_to_string(label - 1, dataset="coco"))
+                for box, label, score in zip(results['boxes'], results['labels'], results['scores']))
         else:
             raise NotImplementedError
 
@@ -163,7 +174,6 @@ class ObjectDetector(torch.nn.Module):
 
             clean_bbox_tuples = non_max_supp(bbox_tuples)
             for ((x_min, y_min, x_max, y_max), label, score, detection) in clean_bbox_tuples:
-
                 cv2.rectangle(frame, (int(x_min), int(y_min)), (int(x_max), int(y_max)),
                               (255, 0, 0), 3)
                 cv2.putText(frame, str(label), (int(x_min), int(y_min)), cv2.FONT_HERSHEY_COMPLEX, 0.5,
