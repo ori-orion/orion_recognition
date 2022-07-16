@@ -148,7 +148,7 @@ class BboxPublisher(object):
 
             # If depth is not valid, discard bounding box
             if valid.size == 0:
-                print('no valid depth for object size')
+                # print('no valid depth for object size')
                 continue
 
             # Use depth to get position
