@@ -41,8 +41,7 @@ class ObjectDetector(torch.nn.Module):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         if algorithm == "yolo":
             try:
-                self.model = torch.hub.load('ultralytics/yolov5', 'yolov5l', force_reload=True,
-                                            pretrained=True)  # needs internet
+                self.model = torch.hub.load('ultralytics/yolov5', 'yolov5l', pretrained=True)  # needs internet
             except:
                 self.model = torch.hub.load(os.path.join(data_path, "ultralytics_yolov5_master"),
                                             'custom', source="local",
