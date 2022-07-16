@@ -200,14 +200,15 @@ class BboxPublisher(object):
             cv2.rectangle(image_bgr, top_left, bottom_right, (255, 0, 0), 3)
             cv2.putText(image_bgr, f"{label}: {score}", top_left, cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 1)
 
-        # Publish nodes
-        try:
-            header = std_msgs.msg.Header()
-            header.stamp = rospy.Time.now()
-            self.detections_pub.publish(DetectionArray(header, clean_detections))
-            self.image_pub.publish(self.bridge.cv2_to_imgmsg(image_bgr, "bgr8"))
-        except CvBridgeError as e:
-            print(e)
+        if clean_detections:
+            # Publish nodes
+            try:
+                header = std_msgs.msg.Header()
+                header.stamp = rospy.Time.now()
+                self.detections_pub.publish(DetectionArray(header, clean_detections))
+                self.image_pub.publish(self.bridge.cv2_to_imgmsg(image_bgr, "bgr8"))
+            except CvBridgeError as e:
+                print(e)
 
 
 if __name__ == '__main__':
