@@ -1,9 +1,10 @@
 import torch
 import os
 
+import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageChops
-from einops import rearrange
+#from einops import rearrange
 from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
 import argparse
@@ -64,5 +65,6 @@ if __name__ == "__main__":
     dataset = AtHomeImageDataset()
     image, target = dataset[args.index]
     print(target)
-    plt.imshow(rearrange(image, "c h w -> h w c"))
+    #plt.imshow(rearrange(image, "c h w -> h w c"))
+    plt.imshow(np.moveaxis(image,0,-1))
     plt.show()

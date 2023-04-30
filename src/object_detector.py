@@ -9,8 +9,6 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import cv2
 
-from einops import rearrange
-
 from orion_recognition.bbox_utils import non_max_supp
 from orion_recognition.object_classifer import ObjectClassifer
 from PIL import Image
@@ -52,6 +50,7 @@ class ObjectDetector(torch.nn.Module):
             raise NotImplementedError
 
         self.model.to(self.device)
+
         if use_classifier:
             self.classfier = ObjectClassifer(self.device)
             self.classfier.eval()
@@ -84,7 +83,7 @@ class ObjectDetector(torch.nn.Module):
         img = torch.as_tensor(img, device=self.device, dtype=torch.float)
 
         if self.algorithm == "yolo":
-            Image.fromarray(np.uint8(rearrange(img.cpu().numpy(), "c h w -> h w c") * 255)).save(tmp_image_dir)
+            Image.fromarray(np.uint8(np.moveaxis(img.cpu().numpy(),0,-1) * 255)).save(tmp_image_dir)
             results = self.model(tmp_image_dir)
             bbox_iterator = results.pandas().xyxy[0].iterrows()
         elif self.algorithm == "rcnn":
@@ -183,7 +182,7 @@ class ObjectDetector(torch.nn.Module):
                 break
 
         vc.release()
-        cv2.destroyWindow("preview")
+        cv2.destroyWindow("preview") 
 
 
 if __name__ == '__main__':

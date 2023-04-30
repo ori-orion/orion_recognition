@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from collections import defaultdict
 
-import orion_recognition.object_detector
+import src.object_detector as object_detector
 import message_filters
 from orion_actions.msg import Detection, DetectionArray, Label
 import sys
@@ -39,7 +39,7 @@ min_size_limits = {
 
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
-        self.detector = orion_recognition.object_detector.ObjectDetector()
+        self.detector = object_detector.ObjectDetector()
         self.detector.eval()
 
         rospack = rospkg.RosPack()
