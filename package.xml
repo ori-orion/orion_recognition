@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <package format="2">
     <name>orion_recognition</name>
-    <version>0.1.0</version>
-    <description>3D Object Detection</description>
+    <version>1.0.0</version>
+    <description>Orion Perception</description>
 
-    <maintainer email="chiaman@robots.ox.ac.uk">Chia-Man Hung</maintainer>
+    <maintainer email="ana@robots.ox.ac.uk">Ana Deligny</maintainer>
 
     <license>TODO</license>
 

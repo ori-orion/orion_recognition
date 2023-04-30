@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from collections import defaultdict
 
-import src.object_detector as object_detector
+import src.orion_recognition.object_detector as object_detector
 import message_filters
 from orion_actions.msg import Detection, DetectionArray, Label
 import sys
@@ -15,7 +15,7 @@ from geometry_msgs.msg import Point
 from sensor_msgs.msg import CameraInfo, Image
 from cv_bridge import CvBridge, CvBridgeError
 
-from orion_recognition.bbox_utils import non_max_supp
+from src.orion_recognition.utils.bbox_utils import non_max_supp
 from orion_recognition.colornames import ColorNames
 import torchvision.transforms as transforms
 import rospkg
