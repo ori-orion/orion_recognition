@@ -64,7 +64,7 @@ class ObjectDetector(torch.nn.Module):
         numpy                       np.ndarray
         torch                       torch.Tensor
         """
-
+        
         result_yolo = self.model(img_source)
 
         if show_result == True:
@@ -209,33 +209,35 @@ class ObjectDetector(torch.nn.Module):
 
         result_Boxes is the Boxes object defined in YOLOv8
         """
-
+        
+        
         if len(result_YOLOv8) != 1:
             raise Exception("Error, should only have ONE result")
+            
 
-            result_Boxes = result_YOLOv8[0].boxes
+        result_Boxes = result_YOLOv8[0].boxes
 
-            bbox_results_dict = {
-                'boxes': [],  # in xyxy format
-                'scores': [],       # confidence score
-                'labels': []        # string class
-                }
+        bbox_results_dict = {
+            'boxes': [],  # in xyxy format
+            'scores': [],       # confidence score
+            'labels': []        # string class
+            }
 
-            for i in range(len(result_Boxes)):
-                bbox_results_dict["boxes"].append(result_Boxes[i].xyxy.numpy())
-                bbox_results_dict["scores"].append(result_Boxes[i].conf.numpy())
-                bbox_results_dict["labels"].append(
-                    self.label_map[result_Boxes[i].cls.numpy()[0]])
+        for i in range(len(result_Boxes)):
+            bbox_results_dict["boxes"].append(result_Boxes[i].xyxy.numpy())
+            bbox_results_dict["scores"].append(result_Boxes[i].conf.numpy())
+            bbox_results_dict["labels"].append(
+                self.label_map[result_Boxes[i].cls.numpy()[0]])
 
-            return bbox_results_dict, result_Boxes
+        return bbox_results_dict, result_Boxes
 
 
 if __name__ == '__main__':
     detector = ObjectDetector()
 
-    # re = detector.detect_img_single(
+    re = detector.detect_img_single("/home/jianeng/Pictures/test/fox.jpg")
     #     "/home/ana/Desktop/Orion/orion_recognition/src/tmp.jpg", show_result=True)
     # bbox_temp = detector.decode_result_Boxes(re)[0]
 
-    detector.detect_and_track_webcam(0)
+    #detector.detect_and_track_webcam(0)
     # detector.detect_webcam(0)

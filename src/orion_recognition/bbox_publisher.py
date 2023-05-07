@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from collections import defaultdict
 
-import src.orion_recognition.object_detector as object_detector
+import orion_recognition.object_detector as object_detector
 import message_filters
 from orion_actions.msg import Detection, DetectionArray, Label
 import sys
@@ -15,7 +15,7 @@ from geometry_msgs.msg import Point
 from sensor_msgs.msg import CameraInfo, Image
 from cv_bridge import CvBridge, CvBridgeError
 
-from src.orion_recognition.utils.bbox_utils import non_max_supp
+from orion_recognition.util.bbox_utils import non_max_supp
 from orion_recognition.colornames import ColorNames
 import torchvision.transforms as transforms
 import rospkg
@@ -40,7 +40,7 @@ min_size_limits = {
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
         self.detector = object_detector.ObjectDetector()
-        self.detector.eval()
+        #self.detector.eval()
 
         rospack = rospkg.RosPack()
 
@@ -55,15 +55,16 @@ class BboxPublisher(object):
         self.image_pub = rospy.Publisher('/vision/bbox_image', Image, queue_size=10)
         self.detections_pub = rospy.Publisher('/vision/bbox_detections', DetectionArray, queue_size=10)
 
-        # Image calibrator
+        # Image calibrator, Default: #/hsrb/head_rgbd_sensor/depth_registered/camera_info
         camera_info = rospy.wait_for_message(
-            "/hsrb/head_rgbd_sensor/depth_registered/camera_info", CameraInfo)
+            "/camera/aligned_depth_to_color/camera_info", CameraInfo)
         self._invK = np.linalg.inv(np.array(camera_info.K).reshape(3, 3))
 
         # Define bridge open cv -> RosImage
         self.bridge = CvBridge()
 
         # Register a subscriber
+        # In this callback function, subscribed messages are synchronized and processed and then published
         self.subscribers.registerCallback(self.callback)
 
         # Read the data on how large the objects should be
@@ -121,11 +122,12 @@ class BboxPublisher(object):
                          dtype=np.float32)
 
         image_np = np.asarray(image)
-        image_tensor = transforms.ToTensor()(image)
+        #image_tensor = transforms.ToTensor()(image)
 
         # apply model to image
+        # !!! This part is changed to adapt to YOLOv8 !!!
         with torch.no_grad():
-            detections = self.detector(image_tensor)
+            detections, nouse = self.detector.decode_result_Boxes(self.detector.detect_img_single(image_np))
 
         boxes = detections['boxes']
         labels = detections['labels']
@@ -134,7 +136,7 @@ class BboxPublisher(object):
         bbox_tuples = []
 
         for i, (box, label, score) in enumerate(zip(boxes, labels, scores)):
-            x_min, y_min, x_max, y_max = box
+            x_min, y_min, x_max, y_max = box[0]
 
             # Dimensions of bounding box
             center_x = (x_min + x_max) / 2
@@ -154,13 +156,13 @@ class BboxPublisher(object):
             # Use depth to get position
             z = np.min(valid) * 1e-3
             top_left_3d = np.array([int(x_min), int(y_min), 1])         # Homogenous coordinates
-            top_left_camera = np.dot(self._invK, top_left_3d) * z
+            top_left_camera = np.dot(self._invK, top_left_3d) * z       # 3D Point (top left of bbox)
             bottom_right_3d = np.array([int(x_max), int(y_max), 1])     # Homogenous coordinates
-            bottom_right_camera = np.dot(self._invK, bottom_right_3d) * z
+            bottom_right_camera = np.dot(self._invK, bottom_right_3d) * z  # 3D Point (bottom right of bbox)
             corner_to_corner = top_left_camera - bottom_right_camera
             x_size = abs(corner_to_corner[0])
             y_size = abs(corner_to_corner[1])
-            z_size = (x_size + y_size) / 2.0
+            z_size = (x_size + y_size) / 2.0                            # Assumes the 3D BoundBox depth (z) is the mean of x3D and y3D values
             size = Point(x_size, y_size, z_size)
 
             # Check if the size of the 3D bounding box makes sense
@@ -186,7 +188,7 @@ class BboxPublisher(object):
             # create detection instance
             detection = Detection(score_lbl, center_x, center_y, width, height,
                                   size, colour, obj[0], obj[1], obj[2], stamp)
-            bbox_tuples.append((box, label, score, detection))
+            bbox_tuples.append((box[0], label, score[0], detection))
 
         clean_bbox_tuples = non_max_supp(bbox_tuples)
         clean_detections = []
@@ -213,7 +215,7 @@ class BboxPublisher(object):
 
 if __name__ == '__main__':
     rospy.init_node('bbox_publisher')
-    img_topic = "/hsrb/head_rgbd_sensor/rgb/image_rect_color"
-    depth_topic = "/hsrb/head_rgbd_sensor/depth_registered/image_rect_raw"
+    img_topic = "/camera/color/image_raw" #/hsrb/head_rgbd_sensor/rgb/image_rect_color"
+    depth_topic = "/camera/aligned_depth_to_color/image_raw" #"/hsrb/head_rgbd_sensor/depth_registered/image_rect_raw"
     sub = BboxPublisher(img_topic, depth_topic)
     rospy.spin()
