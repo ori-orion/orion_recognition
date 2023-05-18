@@ -54,8 +54,8 @@ class BboxPublisher(object):
 
         # Publishers
         self.image_pub = rospy.Publisher('/vision/bbox_image', Image, queue_size=10)
-        self.detections_pub = rospy.Publisher('/vision/bbox_detections', DetectionArray, queue_size=10)
         # Do we actually need to publish the detections to a publisher?
+        self.detections_pub = rospy.Publisher('/vision/bbox_detections', DetectionArray, queue_size=10)
         self.pymongo_interface = MemoryManager.PerceptionInterface(MemoryManager.MemoryManager(connect_to_current_latest=True));
 
         # Image calibrator, Default: #/hsrb/head_rgbd_sensor/depth_registered/camera_info
@@ -73,48 +73,6 @@ class BboxPublisher(object):
         # Read the data on how large the objects should be
         with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "object_sizes.json"), "r") as json_file:
             self.size_dict = json.load(json_file)
-
-    # def getMeanDepth_gaussian(self, depth):
-    #     """Ok so we want to mean over the depth image using a gaussian centred at the
-    #     mid point
-    #     Gausian is defined as e^{-(x/\sigma)^2}
-    #
-    #     Now, e^{-(x/sigma)^2}|_{x=1.5, sigma=1}=0.105 which is small enough. I'll therefore set the width of
-    #     the depth image to be 3 standard deviations. (Remember, there're going to be two distributions
-    #     multiplied together here! so that makes the corners 0.011 times as strong as the centre of the image.)
-    #
-    #     I'm then going to do (2D_gaussian \cdot image) / sum(2D_gaussian)
-    #         (accounting for valid and invalid depth pixels on the way.)
-    #
-    #     This should give a fairly good approximation for the depth.
-    #     """
-    #
-    #     def shiftedGaussian(x: float, shift: float, s_dev: float) -> float:
-    #         return math.exp(-pow((x - shift) / s_dev, 2))
-    #
-    #     width: int = depth.shape[0]
-    #     height: int = depth.shape[1]
-    #     x_s_dev: float = width / 3
-    #     y_s_dev: float = height / 3
-    #     x_shift: float = width / 2
-    #     y_shift: float = height / 2
-    #
-    #     # We need some record of the total amount of gaussian over the image so that we can work out
-    #     # what to divide by.
-    #     gaussian_sum: float = 0
-    #     depth_sum: float = 0
-    #
-    #     for x in range(width):
-    #         x_gaussian = shiftedGaussian(x, x_shift, x_s_dev)
-    #         for y in range(height):
-    #             if (depth[x, y] != 0):
-    #                 point_multiplier: float = x_gaussian * shiftedGaussian(y, y_shift, y_s_dev)
-    #                 gaussian_sum += point_multiplier
-    #                 depth_sum += depth[x, y] * point_multiplier
-    #             pass
-    #         pass
-    #
-    #     return depth_sum / gaussian_sum
 
     def callback(self, ros_image: Image, depth_data: Image):
         stamp = ros_image.header.stamp
