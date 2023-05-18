@@ -21,6 +21,7 @@ import torchvision.transforms as transforms
 import rospkg
 import torch
 import os
+import MemoryManager;
 
 # Approximate maximum dimension size limits - Up to this length
 # In meters
@@ -54,6 +55,8 @@ class BboxPublisher(object):
         # Publishers
         self.image_pub = rospy.Publisher('/vision/bbox_image', Image, queue_size=10)
         self.detections_pub = rospy.Publisher('/vision/bbox_detections', DetectionArray, queue_size=10)
+        # Do we actually need to publish the detections to a publisher?
+        self.pymongo_interface = MemoryManager.PerceptionInterface(MemoryManager.MemoryManager(connect_to_current_latest=True));
 
         # Image calibrator, Default: #/hsrb/head_rgbd_sensor/depth_registered/camera_info
         camera_info = rospy.wait_for_message(
