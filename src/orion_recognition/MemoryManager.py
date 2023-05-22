@@ -11,14 +11,18 @@ import pymongo.cursor
 import pymongo.collection
 import datetime
 import rospy
-from typing import Tuple;
+from typing import Tuple, List;
+import math;
 
 import std_srvs.srv;
 
 # import utils
-from utils import UID_ENTRY, SESSION_ID
+# from utils import UID_ENTRY, SESSION_ID
+SESSION_ID = "SESSION_NUM";
+UID_ENTRY = "UID";
 GLOBAL_TIME_STAMP_ENTRY = "global_timestamp";
 
+PYMONGO_ID_SPECIFIER = "_id";
 
 DEBUG = True;
 DEBUG_LONG = False;
@@ -118,7 +122,7 @@ class PerceptionInterface:
 
         # This might be too close, but it should be ok.
         # NOTE: ROSParam?
-        self.consistent_obj_threshold = 0.02;
+        self.consistent_obj_distance_threshold = 0.02;
         pass;
     
     def getTimeDict(self) -> dict:
@@ -128,7 +132,7 @@ class PerceptionInterface:
             "nsecs" : time_of_creation.nsecs }
         return time_of_creation_dict;
 
-    def queryForObj(self, obj_class:str, observation_batch:int):
+    def queryForObj_FindMatch(self, obj_class:str, observation_batch:int, position:Tuple[float]):
         """
         If we have a re-observation of an object, we want to have a quick check to
         see if we've seen this object before.
@@ -140,13 +144,32 @@ class PerceptionInterface:
         #   the same session id,
         #   the same class and, 
         #   observations in the past, rather than current ones. 
-        prev_detections = list( self.object_collection.find({
+        prev_detections:List[dict] = list( self.object_collection.find({
             "HEADER"                    : { "session_num" : self.memory_manager.current_session_id },
             "class_"                    : obj_class,
             'last_observation_batch'    : { "$lt" : observation_batch }
         }));
 
+        updating = None;
+        smallest_distance = self.consistent_obj_distance_threshold;
 
+        for detection in prev_detections:
+            pos_dict:dict = detection["obj_position"]["position"];
+            resp_pos_delta:Tuple[float] = (pos_dict['x']-position[0], pos_dict['y']-position[1], pos_dict['z']-position[2]);
+            distance = 0;
+            for pos_delta in resp_pos_delta:
+                distance += pos_delta**2;
+            distance = math.sqrt(distance);
+            if distance < smallest_distance:
+                updating = detection[PYMONGO_ID_SPECIFIER];
+                smallest_distance = distance;
+        
+        if updating != None:
+            # We need to update!
+            pass;
+        else:
+            # Add a new item.
+            pass;
 
         pass;
 
