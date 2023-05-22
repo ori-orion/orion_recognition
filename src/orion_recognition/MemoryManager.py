@@ -132,13 +132,17 @@ class PerceptionInterface:
             "nsecs" : time_of_creation.nsecs }
         return time_of_creation_dict;
 
-    def queryForObj_FindMatch(self, obj_class:str, observation_batch:int, position:Tuple[float]):
+    def queryForObj_FindMatch(self, obj_class:str, observation_batch:int, position:Tuple[float]) -> str:
         """
         If we have a re-observation of an object, we want to have a quick check to
         see if we've seen this object before.
 
         Assuming there is only one detection per object, we will also want to ensure that we're not adding an object
         in the same batch for the sake of consistency.    
+
+        Returns:
+            None                if there is no match,
+            [pymongo id]:str    if there is a match.  
         """
         # We are looking for items of
         #   the same session id,
@@ -150,7 +154,7 @@ class PerceptionInterface:
             'last_observation_batch'    : { "$lt" : observation_batch }
         }));
 
-        updating = None;
+        updating:pymongo.collection.ObjectId = None;
         smallest_distance = self.consistent_obj_distance_threshold;
 
         for detection in prev_detections:
@@ -165,26 +169,27 @@ class PerceptionInterface:
                 smallest_distance = distance;
         
         if updating != None:
-            # We need to update!
-            pass;
+            return str(updating);
         else:
-            # Add a new item.
-            pass;
-
-        pass;
+            return None;
 
     def createNewObject(
             self, 
             obj_class:str, 
             observation_batch:int, 
             category:str,
-            position:Tuple[float]) -> str:
+            position:Tuple[float],
+            tf_name:str) -> str:
         """
         Creates a new instance of an object.
 
         returns the uid of the object in the database.
         """
 
+        search_result = self.queryForObj_FindMatch(obj_class, observation_batch, position);
+        if search_result != None:
+            self.updateObject(search_result, observation_batch, position, tf_name);
+            return search_result;
 
 
         time_of_creation_dict = self.getTimeDict();
@@ -193,6 +198,7 @@ class PerceptionInterface:
                 "SESSION_NUM" : self.memory_manager.current_session_id
             },
             "class_" : obj_class,
+            "tf_name": tf_name,
             # "colour" : ...,
             "last_observation_batch" : observation_batch,
             "num_observations" : 1,
@@ -220,7 +226,8 @@ class PerceptionInterface:
             self,
             uid_updating:str,
             current_batch_num:int,
-            position:Tuple[float]) -> None:
+            position:Tuple[float],
+            tf_name:str=None) -> None:
         """
         Updates a given object (based on a uid reference)
         This is what should be done through object tracking.
@@ -245,6 +252,8 @@ class PerceptionInterface:
                 }
             }
         }
+        if tf_name != None:
+            update_dict["$set"]["tf_name"] = tf_name;
 
         self.object_collection.find_one_and_update(
             filter={"_id":pymongo.collection.ObjectId(uid_updating)},
