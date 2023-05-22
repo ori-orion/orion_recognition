@@ -115,6 +115,10 @@ class PerceptionInterface:
 
         # The name of the som collection for humans is "humans"
         self.human_collection = self.memory_manager.addCollection("humans");
+
+        # This might be too close, but it should be ok.
+        # NOTE: ROSParam?
+        self.consistent_obj_threshold = 0.02;
         pass;
     
     def getTimeDict(self) -> dict:
@@ -123,6 +127,28 @@ class PerceptionInterface:
             "secs" : time_of_creation.secs,
             "nsecs" : time_of_creation.nsecs }
         return time_of_creation_dict;
+
+    def queryForObj(self, obj_class:str, observation_batch:int):
+        """
+        If we have a re-observation of an object, we want to have a quick check to
+        see if we've seen this object before.
+
+        Assuming there is only one detection per object, we will also want to ensure that we're not adding an object
+        in the same batch for the sake of consistency.    
+        """
+        # We are looking for items of
+        #   the same session id,
+        #   the same class and, 
+        #   observations in the past, rather than current ones. 
+        prev_detections = list( self.object_collection.find({
+            "HEADER"                    : { "session_num" : self.memory_manager.current_session_id },
+            "class_"                    : obj_class,
+            'last_observation_batch'    : { "$lt" : observation_batch }
+        }));
+
+
+
+        pass;
 
     def createNewObject(
             self, 
@@ -135,7 +161,9 @@ class PerceptionInterface:
 
         returns the uid of the object in the database.
         """
-        
+
+
+
         time_of_creation_dict = self.getTimeDict();
         adding_dict = {
             "HEADER" : {
