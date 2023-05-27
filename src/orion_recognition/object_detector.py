@@ -96,6 +96,7 @@ class ObjectDetector(torch.nn.Module):
             self, 
             webcam_no=2,
             tracking_method='strongsort',
+            # tracking_method='ocsort',
             reid_weights=WEIGHTS / 'osnet_x0_25_msmt17.pt',  # model.pt path
             half=False,  # use FP16 half-precision inference
             hide_labels=False,  # hide labels
@@ -235,9 +236,9 @@ class ObjectDetector(torch.nn.Module):
 if __name__ == '__main__':
     detector = ObjectDetector()
 
-    re = detector.detect_img_single("/home/jianeng/Pictures/test/fox.jpg")
+    # re = detector.detect_img_single("/home/jianeng/Pictures/test/fox.jpg")
     #     "/home/ana/Desktop/Orion/orion_recognition/src/tmp.jpg", show_result=True)
     # bbox_temp = detector.decode_result_Boxes(re)[0]
 
-    #detector.detect_and_track_webcam(0)
+    detector.detect_and_track_webcam(0)
     # detector.detect_webcam(0)

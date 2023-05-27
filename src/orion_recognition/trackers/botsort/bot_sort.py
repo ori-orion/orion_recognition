@@ -307,7 +307,7 @@ class BoTSORT(object):
         if len(dets) > 0:
             '''Detections'''
             
-            detections = [STrack(xyxy, s, c, f.cpu().numpy()) for
+            detections = [STrack(xyxy, s, c, f.cpu().detach().numpy()) for
                               (xyxy, s, c, f) in zip(dets, scores_keep, classes_keep, features_keep)]
         else:
             detections = []
