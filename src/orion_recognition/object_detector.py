@@ -29,7 +29,7 @@ class ObjectDetector(torch.nn.Module):
     def __init__(self):
         
         # This is a temp solution, should change to a rosparam???
-        self.model_path = Path(__file__).resolve().parent.parent.parent
+        self.model_path = "/home/jianeng/code/orion_recognition/src/orion_recognition/runs/detect/train2/weights/"#Path(__file__).resolve().parent.parent.parent
         self.model_name = "yolov8l.pt"
 
         super(ObjectDetector, self).__init__()
@@ -90,6 +90,49 @@ class ObjectDetector(torch.nn.Module):
             cv2.destroyAllWindows()
 
         return result_yolo
+
+
+
+    def detect_webcam(self, webcam_no=2):
+        """
+        Start a webcam, and detect objects on the video        
+        
+        """
+        cv2.namedWindow("Webcam")
+        vc = cv2.VideoCapture(webcam_no)
+
+        while vc.isOpened():  # try to get the first frame
+            rval, frame = vc.read()
+            if not rval:
+                break
+            # image_tensor = transforms.ToTensor()(frame)
+
+            # bbox_tuples = []
+
+            # detections = self(image_tensor)
+            # for box, label, score in zip(detections['boxes'], detections['labels'], detections['scores']):
+            #     bbox_tuples.append((box, label, score, None))
+
+            # clean_bbox_tuples = non_max_supp(bbox_tuples)
+            # for ((x_min, y_min, x_max, y_max), label, score, detection) in clean_bbox_tuples:
+            #     cv2.rectangle(frame, (int(x_min), int(y_min)), (int(x_max), int(y_max)),
+            #                   (255, 0, 0), 3)
+            #     cv2.putText(frame, str(label), (int(x_min), int(y_min)), cv2.FONT_HERSHEY_COMPLEX, 0.5,
+            #                 (0, 255, 0), 1)
+            
+            result_temp = self.detect_img_single(frame)
+            
+            # Visualize the results on the frame
+            annotated_frame = result_temp[0].plot()
+            
+            cv2.imshow("Webcam", annotated_frame)
+            key = cv2.waitKey(20)
+            if key == 27:  # exit on ESC
+                break
+
+        vc.release()
+        cv2.destroyWindow("Webcam")
+
 
 
     def detect_and_track_webcam(
@@ -236,6 +279,7 @@ class ObjectDetector(torch.nn.Module):
 if __name__ == '__main__':
     detector = ObjectDetector()
 
+    detector.detect_webcam(0)
     # re = detector.detect_img_single("/home/jianeng/Pictures/test/fox.jpg")
     #     "/home/ana/Desktop/Orion/orion_recognition/src/tmp.jpg", show_result=True)
     # bbox_temp = detector.decode_result_Boxes(re)[0]
