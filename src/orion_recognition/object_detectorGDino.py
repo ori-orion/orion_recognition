@@ -22,8 +22,8 @@ transform = T.Compose(
 
 
 
-path_cfg = "/home/jianeng/code/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"
-path_weight = "/home/jianeng/code/GroundingDINO/weights/groundingdino_swint_ogc.pth"
+path_cfg = "/home/ori/orion_yolo_robocup/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"
+path_weight = "/home/ori/orion_yolo_robocup/weights/groundingdino_swint_ogc.pth"
 
 
 model = load_model(path_cfg, path_weight)
@@ -35,7 +35,7 @@ TEXT_TRESHOLD = 0.25
 
 
 cv2.namedWindow("Webcam")
-vc = cv2.VideoCapture(2)
+vc = cv2.VideoCapture(0)
 
 while vc.isOpened():  # try to get the first frame
     rval, frame = vc.read()
@@ -53,7 +53,7 @@ while vc.isOpened():  # try to get the first frame
         caption=TEXT_PROMPT,
         box_threshold=BOX_TRESHOLD,
         text_threshold=TEXT_TRESHOLD,
-        device="cpu"
+        device="cuda"
     )
     
     annotated_frame = annotate(image_source=frame, boxes=boxes, logits=logits, phrases=phrases)

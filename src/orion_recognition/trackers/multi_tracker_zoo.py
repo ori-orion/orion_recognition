@@ -1,4 +1,4 @@
-from trackers.strongsort.utils.parser import get_config
+from orion_recognition.trackers.strongsort.utils.parser import get_config
 
 def create_tracker(tracker_type, tracker_config, reid_weights, device, half):
     

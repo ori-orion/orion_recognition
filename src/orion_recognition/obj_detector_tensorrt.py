@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
-
 import os
 import sys
 import torch
@@ -11,8 +9,11 @@ import numpy as np
 from pathlib import Path
 from ultralytics import YOLO  # YOLOv8
 
-from orion_recognition.trackers.multi_tracker_zoo import create_tracker
-from orion_recognition.yolov8.ultralytics.yolo.utils.plotting import Annotator, colors
+# tensorrt
+from models import TRTModule  # isort:skip
+
+from trackers.multi_tracker_zoo import create_tracker
+from yolov8.ultralytics.yolo.utils.plotting import Annotator, colors
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0] 
@@ -30,7 +31,7 @@ class ObjectDetector(torch.nn.Module):
         
         # This is a temp solution, should change to a rosparam???
         self.model_path = "/home/ori/orion_yolo_robocup/"#Path(__file__).resolve().parent.parent.parent
-        self.model_name = "yolov5m_Objects365.pt"
+        self.model_name = "yolov8l-seg.engine"
 
         super(ObjectDetector, self).__init__()
         print("Is cuda available? {}".format(torch.cuda.is_available()))
@@ -46,8 +47,10 @@ class ObjectDetector(torch.nn.Module):
             self.model = YOLO('yolov8l.pt') # download weights
 
         # Send device to model
-        self.model.to(self.device)
-
+        Engine = TRTModule(self.model, self.device)
+        H, W = Engine.inp_info[0].shape[-2:]
+        # set desired output names order
+        Engine.set_desired(['outputs', 'proto'])
         # Dictionary object, key is the index, value is the corresponding string object class
         self.label_map = self.model.names
 
@@ -64,7 +67,7 @@ class ObjectDetector(torch.nn.Module):
         numpy                       np.ndarray
         torch                       torch.Tensor
         """
-        
+        # tensorrt inference here
         result_yolo = self.model(img_source)
         if show_result == True:
             # Read img data
@@ -79,6 +82,7 @@ class ObjectDetector(torch.nn.Module):
                 raise NotImplementedError
 
             # Visualise the results on the frame
+            
             annotated_frame = result_yolo[0].plot()
 
             # Display the annotated frame
@@ -104,21 +108,7 @@ class ObjectDetector(torch.nn.Module):
             rval, frame = vc.read()
             if not rval:
                 break
-            # image_tensor = transforms.ToTensor()(frame)
-
-            # bbox_tuples = []
-
-            # detections = self(image_tensor)
-            # for box, label, score in zip(detections['boxes'], detections['labels'], detections['scores']):
-            #     bbox_tuples.append((box, label, score, None))
-
-            # clean_bbox_tuples = non_max_supp(bbox_tuples)
-            # for ((x_min, y_min, x_max, y_max), label, score, detection) in clean_bbox_tuples:
-            #     cv2.rectangle(frame, (int(x_min), int(y_min)), (int(x_max), int(y_max)),
-            #                   (255, 0, 0), 3)
-            #     cv2.putText(frame, str(label), (int(x_min), int(y_min)), cv2.FONT_HERSHEY_COMPLEX, 0.5,
-            #                 (0, 255, 0), 1)
-            
+            print(frame)
             result_temp = self.detect_img_single(frame)
             
             # Visualize the results on the frame
@@ -256,8 +246,8 @@ class ObjectDetector(torch.nn.Module):
         if len(result_YOLOv8) != 1:
             raise Exception("Error, should only have ONE result")
             
-        # move result to cpu
-        result_Boxes = result_YOLOv8[0].cpu().boxes
+
+        result_Boxes = result_YOLOv8[0].boxes
 
         bbox_results_dict = {
             'boxes': [],  # in xyxy format
