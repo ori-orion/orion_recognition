@@ -82,6 +82,7 @@ class BboxPublisher(object):
         camera_info = rospy.wait_for_message(
             "/hsrb/head_rgbd_sensor/depth_registered/camera_info", CameraInfo)
         self._invK = np.linalg.inv(np.array(camera_info.K).reshape(3, 3))
+        print("\tCamera info recieved");
 
         # Define bridge open cv -> RosImage
         self.bridge = CvBridge()
@@ -93,6 +94,8 @@ class BboxPublisher(object):
         # Read the data on how large the objects should be
         with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "object_sizes.json"), "r") as json_file:
             self.size_dict = json.load(json_file)
+
+        print("bbox_publisher.__init__()");
 
     # def getMeanDepth_gaussian(self, depth):
     #     """Ok so we want to mean over the depth image using a gaussian centred at the
@@ -276,8 +279,9 @@ class BboxPublisher(object):
         if clean_detections:
             # Publish nodes
             try:
-                header = std_msgs.msg.Header()
-                header.stamp = rospy.Time.now()
+                # header = std_msgs.msg.Header()
+                # header.stamp = rospy.Time.now()
+                header = depth_data.header;
                 self.detections_pub.publish(DetectionArray(header, clean_detections))
                 self.image_pub.publish(self.bridge.cv2_to_imgmsg(image_bgr, "bgr8"))
             except CvBridgeError as e:
