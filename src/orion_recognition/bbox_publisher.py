@@ -15,6 +15,10 @@ from geometry_msgs.msg import Point
 from sensor_msgs.msg import CameraInfo, Image
 from cv_bridge import CvBridge, CvBridgeError
 
+# refactor object_detector.py into bbox_publisher.py
+from ultralytics import YOLO
+# refactor object_detector.py into bbox_publisher.py
+
 from orion_recognition.util.bbox_utils import non_max_supp
 from orion_recognition.colornames import ColorNames
 import torchvision.transforms as transforms
@@ -37,13 +41,32 @@ min_size_limits = {
 }
 
 
+    
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
-        self.detector = object_detector.ObjectDetector()
+        # self.detector = object_detector.ObjectDetector()
         #self.detector.eval()
-
+        
+        # get yolo weights path
         rospack = rospkg.RosPack()
-
+        self.yolo_weights_path = rospack.get_path('orion_recognition') + '/src/orion_recognition/weights/yolov8l.pt'
+        print(self.yolo_weights_path)
+        # check if cuda is available
+        print("Is cuda available? {}".format(torch.cuda.is_available()))
+        print("cuda memory allocated: {}".format(
+            torch.cuda.memory_allocated()))  # does not cause seg fault
+        # init device and model
+        self.device = torch.device(
+            "cuda:0" if torch.cuda.is_available() else "cpu")
+        try:
+            self.model = YOLO(self.yolo_weights_path) # load saved copy of pretrained weights
+        except:
+            self.model = YOLO('yolov8l.pt') # download weights
+        # Send device to model
+        self.model.to(self.device)
+        # Dictionary object, key is the index, value is the corresponding string object class
+        self.label_map = self.model.names
+        
         # Subscribers
         self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=1)
         self.depth_sub = message_filters.Subscriber(depth_topic, Image, queue_size=1)
@@ -57,7 +80,7 @@ class BboxPublisher(object):
 
         # Image calibrator, Default: #/hsrb/head_rgbd_sensor/depth_registered/camera_info
         camera_info = rospy.wait_for_message(
-            "/camera/aligned_depth_to_color/camera_info", CameraInfo)
+            "/hsrb/head_rgbd_sensor/depth_registered/camera_info", CameraInfo)
         self._invK = np.linalg.inv(np.array(camera_info.K).reshape(3, 3))
 
         # Define bridge open cv -> RosImage
@@ -113,6 +136,55 @@ class BboxPublisher(object):
     #
     #     return depth_sum / gaussian_sum
 
+    def detect_img_single(self, img_source):
+        """
+        Detect obj on a single image
+        
+        some Supported img_source
+        (Ref: https://docs.ultralytics.com/modes/predict/)
+        Source name:        |       Type:
+        path_to_img                 str, Path
+        OpenCV                      np.ndarray
+        numpy                       np.ndarray
+        torch                       torch.Tensor
+        """
+        result_yolo = self.model(img_source)
+        return result_yolo
+    
+    def decode_result_Boxes(self, result_yolo):
+        """
+        Decode YOLOv8's Results object into Boxes object
+        Return bbox_results and result_Boxes
+
+        bbox_results = {
+            'boxes': [],        #  in xyxy format
+            'scores': [],       # confidence score
+            'labels': []        # string class
+        }
+
+
+        result_Boxes is the Boxes object defined in YOLOv8
+        """
+        if len(result_yolo) != 1:
+            raise Exception("Error, should only have ONE result")
+            
+        # move result to cpu
+        result_Boxes = result_yolo[0].cpu().boxes
+
+        bbox_results_dict = {
+            'boxes': [],  # in xyxy format
+            'scores': [],       # confidence score
+            'labels': []        # string class
+            }
+
+        for i in range(len(result_Boxes)):
+            bbox_results_dict["boxes"].append(result_Boxes[i].xyxy.numpy())
+            bbox_results_dict["scores"].append(result_Boxes[i].conf.numpy())
+            bbox_results_dict["labels"].append(
+                self.label_map[result_Boxes[i].cls.numpy()[0]])
+
+        return bbox_results_dict, result_Boxes
+
     def callback(self, ros_image: Image, depth_data: Image):
         stamp = ros_image.header.stamp
 
@@ -122,17 +194,16 @@ class BboxPublisher(object):
                          dtype=np.float32)
 
         image_np = np.asarray(image)
-        #image_tensor = transforms.ToTensor()(image)
+        # image_tensor = transforms.ToTensor()(image)
 
         # apply model to image
         # !!! This part is changed to adapt to YOLOv8 !!!
         with torch.no_grad():
-            detections, nouse = self.detector.decode_result_Boxes(self.detector.detect_img_single(image_np))
+            detections, nouse = self.decode_result_Boxes(self.detect_img_single(image_np))
 
         boxes = detections['boxes']
         labels = detections['labels']
         scores = detections['scores']
-
         bbox_tuples = []
 
         for i, (box, label, score) in enumerate(zip(boxes, labels, scores)):
@@ -215,7 +286,9 @@ class BboxPublisher(object):
 
 if __name__ == '__main__':
     rospy.init_node('bbox_publisher')
-    img_topic = "/camera/color/image_raw" #/hsrb/head_rgbd_sensor/rgb/image_rect_color"
-    depth_topic = "/camera/aligned_depth_to_color/image_raw" #"/hsrb/head_rgbd_sensor/depth_registered/image_rect_raw"
+    # img_topic = "/camera/color/image_raw" #/hsrb/head_rgbd_sensor/rgb/image_rect_color"
+    img_topic = "/hsrb/head_rgbd_sensor/rgb/image_rect_color"
+    # depth_topic = "/camera/aligned_depth_to_color/image_raw" 
+    depth_topic = "/hsrb/head_rgbd_sensor/depth_registered/image_rect_raw"
     sub = BboxPublisher(img_topic, depth_topic)
     rospy.spin()
