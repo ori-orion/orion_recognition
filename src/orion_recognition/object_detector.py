@@ -11,8 +11,8 @@ import numpy as np
 from pathlib import Path
 from ultralytics import YOLO  # YOLOv8
 
-from trackers.multi_tracker_zoo import create_tracker
-from yolov8.ultralytics.yolo.utils.plotting import Annotator, colors
+# from trackers.multi_tracker_zoo import create_tracker
+# from yolov8.ultralytics.yolo.utils.plotting import Annotator, colors
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0] 

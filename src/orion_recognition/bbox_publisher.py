@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from collections import defaultdict
 
-import orion_recognition.object_detector as object_detector
+# import orion_recognition.object_detector as object_detector
 import message_filters
 from orion_actions.msg import Detection, DetectionArray, Label
 import sys
