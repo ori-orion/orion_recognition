@@ -14,10 +14,10 @@ class ObjectClassifer(torch.nn.Module):
         self.model = load_finetuned_resnet(model_path, 100, eval=True)
         self.model.to(self.device).float()
 
-    def forward(self, img):
-        assert len(img.size()) == 3, "Assumes a single image"
+    def forward(self, img_tensor):
+        assert len(img_tensor.size()) == 3, "Assumes a single image"
         # img = transforms.functional.resize(img, size=[224])
         # print("Image shape: {}".format(img.shape))
-        output = self.model(img.unsqueeze(0))
+        output = self.model(img_tensor.unsqueeze(0))
         probabilities = torch.softmax(output[0], dim=0)
         return torch.argmax(probabilities).item(), torch.max(probabilities).item()

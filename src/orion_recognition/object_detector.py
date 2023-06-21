@@ -8,7 +8,8 @@ import torchvision.models as models
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import cv2
-
+import rospkg
+from ultralytics import YOLO
 from einops import rearrange
 
 from orion_recognition.bbox_utils import non_max_supp
@@ -16,6 +17,11 @@ from orion_recognition.object_classifer import ObjectClassifer
 from PIL import Image
 
 from orion_recognition.utils import data_path
+
+# try tensorrt
+from orion_recognition.models import TRTModule
+from orion_recognition.models.torch_utils import det_postprocess
+from orion_recognition.models.utils import blob, letterbox, path_to_list
 
 use_classifier = True
 buffer = 20
@@ -32,8 +38,17 @@ torch.hub.set_dir(data_path)
 class ObjectDetector(torch.nn.Module):
     def __init__(self, algorithm="yolo"):
         """
-        :param algorithm: 'yolo' or 'rcnn' ('yolo' recommended)
+        :param algorithm: 'yolo' or 'yolotrt'
         """
+        if algorithm == 'yolo':
+            suffix = '.pt'
+        elif algorithm == 'yolotrt':
+            suffix = '.engine'
+        else:
+            NotImplementedError
+        # get yolo weights path
+        rospack = rospkg.RosPack()
+        self.yolo_weights_path = rospack.get_path('orion_recognition') + '/src/orion_recognition/weights/yolov8x' + suffix
         super(ObjectDetector, self).__init__()
         print("Is cuda available? {}".format(torch.cuda.is_available()))
         print("cuda memory allocated: {}".format(torch.cuda.memory_allocated()))  # does not cause seg fault
@@ -41,17 +56,21 @@ class ObjectDetector(torch.nn.Module):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         if algorithm == "yolo":
             try:
-                self.model = torch.hub.load('ultralytics/yolov5', 'yolov5l', pretrained=True)  # needs internet
+                self.model = YOLO(self.yolo_weights_path) # load saved copy of pretrained weights
+                self.model.to(self.device)
             except:
-                self.model = torch.hub.load(os.path.join(data_path, "ultralytics_yolov5_master"),
-                                            'custom', source="local",
-                                            path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "yolov5l.pt"))
-        elif algorithm == "rcnn":
-            self.model = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
+                print("Cannot find yolo weights in weights folder, Downloading YOLO weights...")
+                self.model = YOLO('yolov8l.pt') # needs internet
+                self.model.to(self.device)
+        elif algorithm == "yolotrt":
+            
+            Engine = TRTModule(self.yolo_weights_path, self.device)
+            self.E_H, self.E_W = Engine.inp_info[0].shape[-2:]
+            Engine.set_desired(['num_dets', 'bboxes', 'scores', 'labels'])
+            self.model = Engine
         else:
             raise NotImplementedError
 
-        self.model.to(self.device)
         if use_classifier:
             self.classfier = ObjectClassifer(self.device)
             self.classfier.eval()
@@ -76,57 +95,97 @@ class ObjectDetector(torch.nn.Module):
     def forward(self, img):
         """
         :param img: Requires RGB image (Open-CV and ROS images are BGR by default so be careful!)
+        :input is an img of shape (C, H, W)
         :return: bbox results (dict)
         """
-        assert len(img.size()) == 3, "Assumes a single image input"
+        bbox_results = {
+            'boxes': [], # in xyxy format
+            'scores': [], # confidence score
+            'labels': [] # string class
+        }
+        
+        # assert len(img.size()) == 3, "Assumes a single image input"
+        assert len(img.shape) == 3, "Assumes a single image input"
+        H, W, C = img.shape
+        # img = torch.as_tensor(img, device=self.device, dtype=torch.float)
 
-        C, H, W = img.size()
-        img = torch.as_tensor(img, device=self.device, dtype=torch.float)
+        if self.algorithm == "yolotrt":
+            bgr, ratio, dwdh = letterbox(img, (self.E_W, self.E_H))
+            rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+            tensor = blob(rgb, return_seg=False)
+            dwdh = torch.asarray(dwdh * 2, dtype=torch.float32, device=self.device)
+            tensor = torch.asarray(tensor, device=self.device)
+            # inference
+            data = self.model(tensor)
+            bboxes, scores, labels = det_postprocess(data)
+            bboxes -= dwdh
+            bboxes /= ratio
+            for (bbox, score, label) in zip(bboxes, scores, labels):
+                bbox = bbox.tolist()
+                w_min, h_min, w_max, h_max = bbox
+                label = self.convert_label_index_to_string(int(label), dataset="coco")
+                score = np.float32(score.item())
+                box = w_min, h_min, w_max, h_max
+                if score < min_acceptable_score:
+                    continue
 
-        if self.algorithm == "yolo":
-            Image.fromarray(np.uint8(rearrange(img.cpu().numpy(), "c h w -> h w c") * 255)).save(tmp_image_dir)
-            results = self.model(tmp_image_dir)
-            bbox_iterator = results.pandas().xyxy[0].iterrows()
-        elif self.algorithm == "rcnn":
-            results = self.model(img.unsqueeze(0))[0]
-            results = {k: v.cpu().detach().numpy() for k, v in results.items()}
-            bbox_iterator = enumerate(
-                (*box, score, label, self.convert_label_index_to_string(label - 1, dataset="coco"))
-                for box, label, score in zip(results['boxes'], results['labels'], results['scores']))
+                min_dim_size = 25
+                if (h_max - h_min < min_dim_size) or (w_max - w_min < min_dim_size):
+                    # dont take box that is too small
+                    continue
+                bbox_results['labels'].append(label)
+                bbox_results['scores'].append(score)
+                bbox_results['boxes'].append(box)
+
+                if label != "person" and self.classfier:
+                    # convert image to tensor to be used for classifier
+                    img_tensor = transforms.ToTensor()(img)
+                    img_tensor = torch.as_tensor(img_tensor, device=self.device, dtype=torch.float)
+                    new_class_index, new_score = self.classfier(
+                        img_tensor[:, max(0, int(h_min) - buffer):min(int(h_max) + buffer, H),
+                        max(0, int(w_min - buffer)):min(int(w_max) + buffer, W)])
+                    if new_score < min_acceptable_score:
+                        continue
+                    bbox_results['labels'].append(self.convert_label_index_to_string(new_class_index, dataset="robocup"))
+                    bbox_results['scores'].append(new_score)
+                    bbox_results['boxes'].append(box)
+        elif self.algorithm == "yolo":
+            results = self.model(img) # add in batch dimension
+            bbox_iterator = results[0].cpu().boxes
+            for result in bbox_iterator:
+                w_min, h_min, w_max, h_max = result.xyxy.numpy()[0]
+                score = result.conf.numpy()[0]
+                label = result.cls.numpy()[0]
+                label = self.convert_label_index_to_string(int(label), dataset="coco")
+                box = w_min, h_min, w_max, h_max
+                if score < min_acceptable_score:
+                    continue
+                min_dim_size = 25
+                if (h_max - h_min < min_dim_size) or (w_max - w_min < min_dim_size):
+                    # dont take box that is too small
+                    continue
+                bbox_results['labels'].append(label)
+                bbox_results['scores'].append(score)
+                bbox_results['boxes'].append(box)
+
+                if label != "person" and self.classfier:
+                    # convert image to tensor to be used for classifier
+                    img_tensor = transforms.ToTensor()(img)
+                    img_tensor = torch.as_tensor(img_tensor, device=self.device, dtype=torch.float)
+                    new_class_index, new_score = self.classfier(
+                        img_tensor[:, max(0, int(h_min) - buffer):min(int(h_max) + buffer, H),
+                        max(0, int(w_min - buffer)):min(int(w_max) + buffer, W)])
+                    if new_score < min_acceptable_score:
+                        continue
+                    bbox_results['labels'].append(self.convert_label_index_to_string(new_class_index, dataset="robocup"))
+                    bbox_results['scores'].append(new_score)
+                    bbox_results['boxes'].append(box)    
+                    
+            # Image.fromarray(np.uint8(rearrange(img.cpu().numpy(), "c h w -> h w c") * 255)).save(tmp_image_dir)
+            # results = self.model(tmp_image_dir) # add in batch dimension
+            # bbox_iterator = results[0].cpu().boxes
         else:
             raise NotImplementedError
-
-        bbox_results = {
-            'boxes': [],
-            'scores': [],
-            'labels': []
-        }
-        # y = {k: v.cpu().detach().numpy() for k, v in results.items()}
-        # for box, label, score in zip(y['boxes'], y['labels'], y['scores']):
-        #     w_min, h_min, w_max, h_max = box
-        for i, result in bbox_iterator:
-            w_min, h_min, w_max, h_max, score, class_index, label = result
-            box = w_min, h_min, w_max, h_max
-            if score < min_acceptable_score:
-                continue
-
-            min_dim_size = 25
-            if (h_max - h_min < min_dim_size) or (w_max - w_min < min_dim_size):
-                # dont take box that is too small
-                continue
-            bbox_results['labels'].append(label)
-            bbox_results['scores'].append(score)
-            bbox_results['boxes'].append(box)
-
-            if label != "person" and self.classfier:
-                new_class_index, new_score = self.classfier(
-                    img[:, max(0, int(h_min) - buffer):min(int(h_max) + buffer, H),
-                    max(0, int(w_min - buffer)):min(int(w_max) + buffer, W)])
-                if new_score < min_acceptable_score:
-                    continue
-                bbox_results['labels'].append(self.convert_label_index_to_string(new_class_index, dataset="robocup"))
-                bbox_results['scores'].append(new_score)
-                bbox_results['boxes'].append(box)
 
         print(f"Detected objects (COCO{' + RoboCup' if self.classfier else ''}): {bbox_results['labels']}")
         return bbox_results

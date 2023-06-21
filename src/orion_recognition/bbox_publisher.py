@@ -40,9 +40,9 @@ min_size_limits = {
 class BboxPublisher(object):
     def __init__(self, image_topic, depth_topic):
         self.detector = orion_recognition.object_detector.ObjectDetector()
-        self.detector.eval()
+        # self.detector.eval()
 
-        rospack = rospkg.RosPack()
+        # rospack = rospkg.RosPack()
 
         # Subscribers
         self.image_sub = message_filters.Subscriber(image_topic, Image, queue_size=1)
@@ -125,11 +125,10 @@ class BboxPublisher(object):
                          dtype=np.float32)
 
         image_np = np.asarray(image)
-        image_tensor = transforms.ToTensor()(image)
-
+        # image_tensor = transforms.ToTensor()(image)
         # apply model to image
         with torch.no_grad():
-            detections = self.detector(image_tensor)
+            detections = self.detector(image_np)
 
         boxes = detections['boxes']
         labels = detections['labels']
