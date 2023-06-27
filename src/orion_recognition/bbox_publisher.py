@@ -161,9 +161,10 @@ class BboxPublisher(object):
             bottom_right_3d = np.array([int(x_max), int(y_max), 1])     # Homogenous coordinates
             bottom_right_camera = np.dot(self._invK, bottom_right_3d) * z
             corner_to_corner = top_left_camera - bottom_right_camera
+            # To align with global frame properly, we want z to be a measure of height rather than of depth.
             x_size = abs(corner_to_corner[0])
-            y_size = abs(corner_to_corner[1])
-            z_size = (x_size + y_size) / 2.0
+            z_size = abs(corner_to_corner[1])
+            y_size = (x_size + z_size) / 2.0
             size = Point(x_size, y_size, z_size)
 
             # Check if the size of the 3D bounding box makes sense
