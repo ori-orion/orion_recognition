@@ -164,7 +164,7 @@ class BboxPublisher(object):
             # To align with global frame properly, we want z to be a measure of height rather than of depth.
             x_size = abs(corner_to_corner[0])
             z_size = abs(corner_to_corner[1])
-            y_size = (x_size + y_size) / 2.0
+            y_size = (x_size + z_size) / 2.0
             size = Point(x_size, y_size, z_size)
 
             # Check if the size of the 3D bounding box makes sense
