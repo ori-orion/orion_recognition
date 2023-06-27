@@ -143,3 +143,6 @@ yolov5*.pt
 tmp.jpg
 data/*
 !data/.gitkeep
+
+yolov8x.pt
+yolov8x.engine
