@@ -54,11 +54,11 @@ class BboxPublisher(object):
         # Publishers
         self.image_pub = rospy.Publisher('/vision/bbox_image', Image, queue_size=10)
         self.detections_pub = rospy.Publisher('/vision/bbox_detections', DetectionArray, queue_size=10)
-
+        #"/hsrb/head_rgbd_sensor/depth_registered/camera_info"
         # Image calibrator
         print("\tWaiting for camera info");
         camera_info = rospy.wait_for_message(
-            "/hsrb/head_rgbd_sensor/depth_registered/camera_info", CameraInfo)
+            "/hsrb/head_rgbd_sensor/depth_registered/camera_info", CameraInfo) # "/camera/color/camera_info"
         self._invK = np.linalg.inv(np.array(camera_info.K).reshape(3, 3))
         print("\tCamera info recieved");
 

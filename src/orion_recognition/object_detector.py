@@ -23,7 +23,7 @@ from orion_recognition.models import TRTModule
 from orion_recognition.models.torch_utils import det_postprocess
 from orion_recognition.models.utils import blob, letterbox, path_to_list
 
-use_classifier = True
+use_classifier = False
 buffer = 20
 
 PERSON_LABEL = 1
@@ -36,7 +36,7 @@ torch.hub.set_dir(data_path)
 
 
 class ObjectDetector(torch.nn.Module):
-    def __init__(self, algorithm="yolo"):
+    def __init__(self, algorithm="yolotrt"):
         """
         :param algorithm: 'yolo' or 'yolotrt'
         """
@@ -74,6 +74,8 @@ class ObjectDetector(torch.nn.Module):
         if use_classifier:
             self.classfier = ObjectClassifer(self.device)
             self.classfier.eval()
+        else:
+            self.classfier = None
 
         labels_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -186,7 +188,6 @@ class ObjectDetector(torch.nn.Module):
             # bbox_iterator = results[0].cpu().boxes
         else:
             raise NotImplementedError
-
         print(f"Detected objects (COCO{' + RoboCup' if self.classfier else ''}): {bbox_results['labels']}")
         return bbox_results
 
