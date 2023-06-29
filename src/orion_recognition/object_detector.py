@@ -36,7 +36,7 @@ torch.hub.set_dir(data_path)
 
 
 class ObjectDetector(torch.nn.Module):
-    def __init__(self, algorithm="yolo"):
+    def __init__(self, algorithm="yolotrt"):
         """
         :param algorithm: 'yolo' or 'yolotrt'
         """
