@@ -36,7 +36,7 @@ torch.hub.set_dir(data_path)
 
 
 class ObjectDetector(torch.nn.Module):
-    def __init__(self, algorithm="yolotrt"):
+    def __init__(self, algorithm="yolov5"):
         """
         :param algorithm: 'yolo' or 'yolotrt'
         """
@@ -44,11 +44,14 @@ class ObjectDetector(torch.nn.Module):
             suffix = '.pt'
         elif algorithm == 'yolotrt':
             suffix = '.engine'
+        elif algorithm == 'yolov5':
+            suffix = '.pt'
         else:
             NotImplementedError
         # get yolo weights path
         rospack = rospkg.RosPack()
-        self.yolo_weights_path = rospack.get_path('orion_recognition') + '/src/orion_recognition/weights/yolov8x' + suffix
+        self.yolo_weights_path = rospack.get_path('orion_recognition') + '/src/orion_recognition/weights/yolov5ycb' + suffix
+        print(self.yolo_weights_path)
         super(ObjectDetector, self).__init__()
         print("Is cuda available? {}".format(torch.cuda.is_available()))
         print("cuda memory allocated: {}".format(torch.cuda.memory_allocated()))  # does not cause seg fault
@@ -58,7 +61,8 @@ class ObjectDetector(torch.nn.Module):
             try:
                 self.model = YOLO(self.yolo_weights_path) # load saved copy of pretrained weights
                 self.model.to(self.device)
-            except:
+            except Exception as e:
+                print(e)
                 print("Cannot find yolo weights in weights folder, Downloading YOLO weights...")
                 self.model = YOLO('yolov8l.pt') # needs internet
                 self.model.to(self.device)
@@ -68,6 +72,18 @@ class ObjectDetector(torch.nn.Module):
             self.E_H, self.E_W = Engine.inp_info[0].shape[-2:]
             Engine.set_desired(['num_dets', 'bboxes', 'scores', 'labels'])
             self.model = Engine
+        elif algorithm == "yolov5":
+            try: 
+                self.model = torch.hub.load(os.path.join(data_path, "ultralytics_yolov5_master"),
+                    'custom', source="local",
+                    path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "yolov5ycb.pt"))
+                # self.model = torch.hub.load('~/yolov5', 'custom', source = "local", path = self.yolo_weights_path)
+                self.model.to(self.device)
+            except Exception as e:
+                print(e)
+                print("Cannot find yolov5 weights in weights folder, default to yolov8")
+                self.model = YOLO('yolov8l.pt') # needs internet
+                self.model.to(self.device)
         else:
             raise NotImplementedError
 
@@ -80,12 +96,16 @@ class ObjectDetector(torch.nn.Module):
         labels_path = os.path.dirname(os.path.abspath(__file__))
 
         self.coco_labels = []
+        self.ycb_labels = []
         with open(os.path.join(labels_path, 'coco_labels2017.txt'), 'r') as in_file:
             self.coco_labels = in_file.read().strip().split("\n")
         with open(os.path.join(labels_path, 'labels_short.txt'), 'r') as in_file:
             self.robocup_labels = in_file.read().strip().split("\n")
+        with open(os.path.join(labels_path, 'label_ycb.txt'), 'r') as in_file:
+            self.ycb_labels = in_file.read().strip().split("\n")
 
         print(self.coco_labels)
+        print(self.ycb_labels)
 
         self.all_labels = self.coco_labels + self.robocup_labels
         self.label_map = {}
@@ -186,9 +206,30 @@ class ObjectDetector(torch.nn.Module):
             # Image.fromarray(np.uint8(rearrange(img.cpu().numpy(), "c h w -> h w c") * 255)).save(tmp_image_dir)
             # results = self.model(tmp_image_dir) # add in batch dimension
             # bbox_iterator = results[0].cpu().boxes
+        elif self.algorithm == "yolov5":
+            image_tensor = transforms.ToTensor()(img)
+            image_tensor = torch.as_tensor(image_tensor, device=self.device, dtype=torch.float)
+            Image.fromarray(np.uint8(rearrange(image_tensor.cpu().numpy(), "c h w -> h w c") * 255)).save(tmp_image_dir)
+            results = self.model(tmp_image_dir)
+            bbox_iterator = results.pandas().xyxy[0].iterrows()
+            # print(results.pandas().xyxy[0])
+            for i, result in bbox_iterator:
+                w_min, h_min, w_max, h_max, score, class_index, label = result
+                label = self.convert_label_index_to_string(int(class_index), dataset="ycb")
+                box = w_min, h_min, w_max, h_max
+                if score < min_acceptable_score:
+                    continue
+                min_dim_size = 25
+                if (h_max - h_min < min_dim_size) or (w_max - w_min < min_dim_size):
+                    # dont take box that is too small
+                    continue
+                bbox_results['labels'].append(label)
+                bbox_results['scores'].append(score)
+                bbox_results['boxes'].append(box)
+            
         else:
             raise NotImplementedError
-        print(f"Detected objects (COCO{' + RoboCup' if self.classfier else ''}): {bbox_results['labels']}")
+        print(f"Detected objects (YCB{' + RoboCup' if self.classfier else ''}): {bbox_results['labels']}")
         return bbox_results
 
     def convert_label_index_to_string(self, index, dataset="coco"):
@@ -196,6 +237,8 @@ class ObjectDetector(torch.nn.Module):
             return self.coco_labels[index]
         elif dataset == "robocup":
             return self.robocup_labels[index].split("/")[-1]
+        elif dataset == "ycb":
+            return self.ycb_labels[index]
         else:
             raise NotImplementedError
 
